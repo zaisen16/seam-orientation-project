@@ -1,0 +1,12 @@
+name: zaisenShinyApp
+title: zaisenShinyApp
+username: zaisen
+account: zaisen
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 9181076
+bundleId: 8764793
+url: https://zaisen.shinyapps.io/zaisenShinyApp/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
