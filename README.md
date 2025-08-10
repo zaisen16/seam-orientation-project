@@ -14,7 +14,7 @@ I am using TrackMan data tracked using the 3D Spin camera, which has been attach
 
 First, I needed to be able to actually visualize this data, and find out if there is any true relationship of seam orientation to movement. 
 I started with creating function to visualize the location of a pitches' spin axis on the ball, essentially explaining seam orientation. This is done through a mollweide projection style plot(example below).
-What this is plotting is the spin axis: if I were to put a metal rod through the spin axis of a 4-seam fastball to visualize the spin, this is plotting the entry & exit point of that rod.
+What is being plotting is the spin axis: if I were to put a metal rod through the spin axis of a 4-seam fastball to visualize the spin, this is plotting the entry & exit point of that rod. Each dot is a point at which the ball is rotating around, similar to how the Earth rotates around the north & south poles, for example. 
 (Please note, that because the ball's orientation is ambiguous, each pitch actually has 4 points associated with it)
 
 <img width="980" height="474" alt="Screenshot 2025-08-09 at 21 37 54" src="https://github.com/user-attachments/assets/2e4512ae-f5d0-4d37-9cb2-320891b51ed8" />
@@ -46,6 +46,18 @@ This is the proper seam orientation for a sweeper, which aligns with the well do
 Again, this does not point out the spin direction or gyro angle properly. Typically, a right handed sweeper has the spin axis point or "red dot" on the bottom right of the ball(pitcher's perspective).
 
 
+You can also see that there is a clear relationship between this spin axis point and horizontal movement, on sliders specifically:
+
+<img width="659" height="581" alt="Screenshot 2025-08-09 at 21 48 59" src="https://github.com/user-attachments/assets/de1a1405-9d00-4a53-994d-16924715efce" />
+
+(Horizontal Break vs horizontal point location of the spin axis)
+
+<img width="622" height="577" alt="Screenshot 2025-08-09 at 21 50 09" src="https://github.com/user-attachments/assets/7449a324-0526-405f-ab04-f643cd8897de" />
+
+(Horizontal Break vs horizontal point location of the spin axis)
+
+These two plots show that there is an optimal seam orientation for a sweeper. The actual numbers on the Y axis here are not as intuitive right away, but all they do is point to a location on that mollweide style plot.
+While these do show a clear relationship of seam orientation to movement, I have a hard time calling this a linear relationship, despite what the plot may appear as. It really is just about finding the correct seam orientation. There is no "maximizing" any amount of orientation to achieve sweeper movement. It simply points out that there is an optimal seam orienation.
 
 
 
