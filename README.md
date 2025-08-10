@@ -19,12 +19,12 @@ What this is plotting is the spin axis: if I were to put a metal rod through the
 <img width="980" height="474" alt="Screenshot 2025-08-09 at 21 37 54" src="https://github.com/user-attachments/assets/2e4512ae-f5d0-4d37-9cb2-320891b51ed8" />
 
 
-(This Pitcher's movement plot, for reference)
+(This Pitcher's movement plot, for reference):
 <img width="820" height="669" alt="Screenshot 2025-08-09 at 21 07 53" src="https://github.com/user-attachments/assets/6062c1f5-e0b5-48ea-93a8-a1827cf4855f" />
 
 To explain this pitcher's mollweide style plot:
 He throws a fastball with a very typical 4-seam orientation, though it is not _perfectly_ a 4-seam orientation but extremely close. 
-He is throwing a changeup with a 2-seam spin orientation, pretty typcical for a changeup grip.
+He is throwing a changeup with a 2-seam spin orientation, pretty typical for a changeup grip.
 The slider is actually a similar orientation to the changeup, but it is spinning in a completely different direction. This plot only tells you where the axis "entry" & "exit" points are, it does not describe anything about the gyro degree or spin direction of the pitch.
 
 
