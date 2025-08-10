@@ -37,10 +37,11 @@ Clearly there is a certain seam orientation required to throw a sweeper, located
 To more easily understand this orientation, here is a helpful visual.
 
 ![ScreenRecording2025-07-24at15 05 17-ezgif com-video-to-gif-converter (1)](https://github.com/user-attachments/assets/b60a156a-3be6-400e-b839-b096f589e123)
+
 (You can mess around with this tool at https://scout.texasleaguers.com/spin)
 
 This is the proper seam orientation for a sweeper, which aligns with the well documented orientation pitchers actually use for sweepers. 
-Again, this does not point out the spin direction or gyro angle properly. Typically, a right handed sweeper has the "red dot" on the bottom right of the ball(pitcher's perspective).
+Again, this does not point out the spin direction or gyro angle properly. Typically, a right handed sweeper has the spin axis point or "red dot" on the bottom right of the ball(pitcher's perspective).
 
 
 
