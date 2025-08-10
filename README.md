@@ -4,7 +4,7 @@
 
 **What is the data?**
 
-I am using TrackMan data tracked using the 3D Spin camera, which has been attached to all Cape Cod League TrackMan units. The data actually captures periodically, so my dataset is not every pitch thrown in the cape this summer, but still has many.
+I am using TrackMan data tracked using the 3D Spin camera, which has been attached to all Cape Cod League TrackMan units. The data captures periodically, so my dataset is not every pitch thrown in the cape this summer, but still has many.
 
 
 
