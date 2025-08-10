@@ -16,7 +16,8 @@ I started with creating function to visualize the location of a pitches' spin ax
 What this is plotting is the spin axis: if I were to put a metal rod through the spin axis of a 4-seam fastball to visualize the spin, this is plotting the entry & exit point of that rod.
 (Please note, that because the ball's orientation is ambiguous, each pitch actually has 4 points associated with it)
 
-<img width="926" height="454" alt="Screenshot 2025-08-09 at 21 09 06" src="https://github.com/user-attachments/assets/731a95bb-ff06-4f03-ae9c-6913dc5e51d3" />
+<img width="980" height="474" alt="Screenshot 2025-08-09 at 21 37 54" src="https://github.com/user-attachments/assets/2e4512ae-f5d0-4d37-9cb2-320891b51ed8" />
+
 
 (This Pitcher's movement plot, for reference)
 <img width="820" height="669" alt="Screenshot 2025-08-09 at 21 07 53" src="https://github.com/user-attachments/assets/6062c1f5-e0b5-48ea-93a8-a1827cf4855f" />
