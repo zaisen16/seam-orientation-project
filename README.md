@@ -25,12 +25,15 @@ What is being plotting is the spin axis: if I were to put a metal rod through th
 <img width="582" height="404" alt="Screenshot 2025-08-11 at 11 23 15" src="https://github.com/user-attachments/assets/1f692e43-b1ac-4793-88ff-44e2c913e5f4" />
 
 To explain this pitcher's mollweide style plot:
-He throws a fastball with a very typical 4-seam orientation, though it is not _perfectly_ a 4-seam orientation but extremely close. 
-He is throwing a changeup with a 2-seam spin orientation, pretty typical for a changeup grip.
-The slider is actually a similar orientation to the changeup, but it is spinning in a completely different direction. This plot only tells you where the axis "entry" & "exit" points are, it does not describe anything about the gyro degree or spin direction of the pitch.
+
+He throws a fastball with a very typical 4-seam orientation, getting perfect 4-seam backspin.
+His cutter is just offset from the 4-seam fastball's orientation.
+And his slider follows a very typical sweeper orientation, with the ball rotating around that bottom right/top left part of the seam. Pitchers can also recognize this as having a "red dot" on the ball, from the ball rotating directly around the seam, creating a dot on the ball visually. It can also be referred to as a more "one-seam" look, with one solid line from the seam as it is spinning.
+(More on this orientation later)
 
 
-Now, I wanted to see if there is any actual evidence of a certain seam orientation causing more movement(ie, detecting seam shifted wake effects).
+**Can Seam Orientation Relate to Movement?**
+At this point, I wanted to see if there is any actual evidence of a certain seam orientation causing more movement(ie, detecting seam shifted wake effects).
 The first place to start with this is analyzing sliders(and sweepers). It is well documented that the sweeper is picking up so much horizontal break due to the seam effects of the pitch. 
 Here is a mollweide plot of all righty sliders(colored to horizontal break, the darker points having the most sweep):
 
