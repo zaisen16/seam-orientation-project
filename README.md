@@ -27,7 +27,9 @@ What is being plotting is the spin axis: if I were to put a metal rod through th
 To explain this pitcher's mollweide style plot:
 
 He throws a fastball with a very typical 4-seam orientation, getting perfect 4-seam backspin.
-His cutter is just offset from the 4-seam fastball's orientation.
+
+His cutter is just offset from the 4-seam fastball's orientation(some misstagged pitches included).
+
 And his slider follows a very typical sweeper orientation, with the ball rotating around that bottom right/top left part of the seam. Pitchers can also recognize this as having a "red dot" on the ball, from the ball rotating directly around the seam, creating a dot on the ball visually. It can also be referred to as a more "one-seam" look, with one solid line from the seam as it is spinning.
 (More on this orientation later)
 
