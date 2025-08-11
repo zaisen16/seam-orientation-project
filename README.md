@@ -17,11 +17,12 @@ I started with creating function to visualize the location of a pitches' spin ax
 What is being plotting is the spin axis: if I were to put a metal rod through the spin axis of a 4-seam fastball to visualize the spin, this is plotting the entry & exit point of that rod. Each dot is a point at which the ball is rotating around, similar to how the Earth rotates around the north & south poles, for example. 
 (Please note, that because the ball's orientation is ambiguous, each pitch actually has 4 points associated with it)
 
-<img width="980" height="474" alt="Screenshot 2025-08-09 at 21 37 54" src="https://github.com/user-attachments/assets/2e4512ae-f5d0-4d37-9cb2-320891b51ed8" />
+
+<img width="726" height="338" alt="Screenshot 2025-08-11 at 11 22 13" src="https://github.com/user-attachments/assets/b8db4d75-071f-4c2f-8e06-46260457decc" />
 
 
 (This Pitcher's movement plot, for reference):
-<img width="820" height="669" alt="Screenshot 2025-08-09 at 21 07 53" src="https://github.com/user-attachments/assets/6062c1f5-e0b5-48ea-93a8-a1827cf4855f" />
+<img width="582" height="404" alt="Screenshot 2025-08-11 at 11 23 15" src="https://github.com/user-attachments/assets/1f692e43-b1ac-4793-88ff-44e2c913e5f4" />
 
 To explain this pitcher's mollweide style plot:
 He throws a fastball with a very typical 4-seam orientation, though it is not _perfectly_ a 4-seam orientation but extremely close. 
