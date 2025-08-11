@@ -34,7 +34,12 @@ And his slider follows a very typical sweeper orientation, with the ball rotatin
 (More on this orientation later)
 
 
+
+
+
 **Can Seam Orientation Relate to Movement?**
+
+
 At this point, I wanted to see if there is any actual evidence of a certain seam orientation causing more movement(ie, detecting seam shifted wake effects).
 The first place to start with this is analyzing sliders(and sweepers). It is well documented that the sweeper is picking up so much horizontal break due to the seam effects of the pitch. 
 Here is a mollweide plot of all righty sliders(colored to horizontal break, the darker points having the most sweep):
