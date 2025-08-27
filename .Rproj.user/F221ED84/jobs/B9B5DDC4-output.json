@@ -1,0 +1,8 @@
+[1,"Installing 'pdp' ...\n"]
+[2,"trying URL 'https://cran.rstudio.com/bin/macosx/big-sur-arm64/contrib/4.3/pdp_0.8.2.tgz'\n"]
+[2,"Content type 'application/x-gzip' length 1484469 bytes (1.4 MB)\n===="]
+[2,"==============="]
+[2,"===============================\ndownloaded 1.4 MB\n\n"]
+[1,"The downloaded binary packages are in\n"]
+[1,"\t/var/folders/n2/vw1_cjq50d18669v1ymfsy6m0000gn/T//RtmpjK2HyR/downloaded_packages\n"]
+[2,"\n\n✔ Package 'pdp' successfully installed.\n"]

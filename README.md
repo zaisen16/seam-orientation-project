@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ***Analyzing Seam Orientation Data***
 
 
@@ -71,3 +72,6 @@ These two plots show that there is an optimal seam orientation for a sweeper. Th
 
 To avoid any confusion when lookint at these plots, I want to point out one more thing. While this does show a clear relationship of seam orientation to movement, I can not call this a linear relationship, despite what the plot may appear as. It really is just about finding the correct seam orientation. There is no "maximizing" any amount of orientation to achieve sweeper movement. It simply points out that there is an optimal seam orienation.
 
+=======
+# First-Repo
+>>>>>>> f8f7bf7 (first commit)

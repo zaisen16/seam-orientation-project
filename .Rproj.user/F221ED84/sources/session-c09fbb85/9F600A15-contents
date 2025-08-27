@@ -1,0 +1,254 @@
+library(baseballr)
+library(tidyr)
+library(tidyverse)
+
+# Reading in data
+MLB2022 <- read_csv("2022.csv")
+MLB2023 <- read_csv("2023.csv")
+MLB2024 <- read_csv("2024 (1).csv")
+MLBdata <- MLBdata %>% mutate(pfx_x = abs(pfx_x), release_pos_x = abs(release_pos_x), plate_x = -plate_x, pfx_z = pfx_z) %>%
+  filter(!pitch_name == "Intentional Ball", !pitch_name == "Pitch Out",
+         !pitch_name == "", !pitch_name == "Other", stand == "R") %>% 
+  mutate(kzone = ifelse(c(plate_x >= -0.71 & plate_x <= 0.71 & 
+                            plate_z >= 1.5 & plate_z <= 3.5), 1, 0)) %>% 
+  filter(game_type == "R" | game_type == "F" | game_type == "D" | 
+           game_type == "L" | game_type == "W")
+
+
+
+# Adding whiff binary
+MLBdata$whiff <- ifelse(MLBdata$description == "swinging_strike", 1, 0)
+# Adding swing binary
+MLBdata$swing <- ifelse(c(MLBdata$description == "swinging_strike" | MLBdata$description == "foul" | MLBdata$description == "hit_into_play"), 1, 0)
+# Adding hard hit binary
+MLBdata$hard_hit <- ifelse(MLBdata$description == "hit_into_play" & MLBdata$launch_speed > 95, 1, 0)
+# Adding pitcher name & pitch name(ex: 'Verlander, Justin: Curveball')
+MLBdata$pitch_name_full <- paste(MLBdata$pitcher_name, ": ", MLBdata$pitch_name)
+
+
+library(rpart)
+library(randomForest)
+library(forecast)
+library(caret)
+library(xgboost)
+
+
+train_size <- 0.7 * nrow(MLBdata)
+set.seed(47318290)
+train_index <- sample(x = 1:nrow(MLBdata), size = train_size)
+train_set <- MLBdata[train_index, ] %>% filter(swing == 1)
+valid_set <- MLBdata[-train_index, ] %>% filter(swing == 1)
+
+# Random Forest Model
+# RandForestModel <- randomForest(formula = whiff ~ ., 
+#                        data = train_set[, c(5, 6, 7, 29, 30, 58, 59, 80, 95)], 
+#                        ntree = 300, importance = TRUE, na.action = na.omit)
+# varImpPlot(RandForestModel, type = 2)
+
+
+
+
+
+
+
+
+
+x <- train_set[, c(3, 4, 5, 28, 29, 58)]
+# x_w.loc <- train_set[, c(5, 6, 7, 29, 30, 31, 32, 59)]
+str(x)
+x_valid <- valid_set[, c(3, 4, 5, 28, 29, 58)]
+# x_valid_w.loc <- valid_set[, c(5, 6, 7, 29, 30, 31, 32)]
+y <- train_set$whiff
+
+# XG Boost Model
+whiff_model <- xgboost(data = as.matrix(x), 
+                    label = y,
+                    nrounds = 50,
+                    max_depth = 7,
+                    alpha = 0.01,
+                    objective = "reg:logistic",
+                    verbose = 1)
+
+var_imp_matrix <- xgb.importance(model = whiff_model)
+xgb.plot.importance(var_imp_matrix)
+
+
+
+
+
+
+
+
+# Probabilities
+new_data <- xgb.DMatrix(data = as.matrix(x_valid))
+valid_set$probabilities <- predict(whiff_model, new_data)
+train_set$probabilities <- predict(whiff_model, as.matrix(x))
+
+# Predictions on valid set
+# predictions <- ifelse(valid_set$probabilities > mean(train_set$whiff), 1, 0)
+# confusionMatrix(as.factor(predictions), as.factor(valid_set$whiff), positive = '1')
+# 
+# # Predictions on training set
+# predictions_train <- ifelse(train_set$probabilities > mean(train_set$whiff), 1, 0)
+# confusionMatrix(as.factor(predictions_train), as.factor(train_set$whiff), positive = '1')
+
+
+
+
+valid_set <- valid_set %>% mutate("pred_whiff_scaled" = (probabilities/mean(probabilities))*100)
+standardized_values <- (valid_set$pred_whiff_scaled - mean(valid_set$pred_whiff_scaled)) / sd(valid_set$pred_whiff_scaled)
+valid_set$rescaled_values <- standardized_values * 20 + 100
+
+
+
+
+
+
+
+
+
+
+# Plot movement with its whiff probability
+valid_set %>% filter(c(pitch_name == "4-Seam Fastball" | pitch_name == "Sinker"),
+                     p_throws == "R", release_pos_z > 4, release_pos_z < 8,
+                     release_speed > 95, release_speed < 110) %>% 
+  ggplot(aes(pfx_x, pfx_z, color = pred_whiff_scaled)) + 
+                   geom_point() +
+                   geom_segment(x=-30, xend=30, y=0, yend=0, color = "black") + 
+                   geom_segment(x=0, xend=0, y=-30, yend=30, color = "black") +
+                   labs(x = "Horizontal Break(in.)", y = "Induced Vertical Break(in.)") + 
+                   scale_color_gradient2(low = "blue", mid = "white", high = "red", midpoint = 100) +
+                   coord_equal(xlim = c(-25, 25), ylim = c(-25, 25)) + theme_dark()
+
+valid_set %>% filter(pitch_name == "4-Seam Fastball") %>% ggplot(aes(release_speed, pred_whiff_scaled)) + 
+                                                                   geom_point(na.rm = TRUE)
+
+
+# Table for predicted whiff probability & actual whiff rate
+library(gt)
+library(gtExtras)
+output_dataframe <- valid_set %>% group_by(pitch_name_full) %>% summarise(
+  Total = n(),
+  PredictedWhiff = 100*(round(mean(probabilities), 3)),
+  ActualWhiff = round(100*(sum(description == "swinging_strike")/
+                             sum(description == "swinging_strike",
+                                 description == "foul",
+                                 description == "hit_into_play")), 1),
+  Scaled = mean(rescaled_values),
+  Diff = round(PredictedWhiff - ActualWhiff, 1),
+  Velo = round(mean(release_speed), 1),
+  Vert = round(mean(pfx_z), 1),
+  Horz = round(mean(pfx_x), 1),
+) %>% filter(Total > 50) %>% arrange(desc(Scaled)) %>% data.frame()
+
+hist(output_dataframe$Scaled)
+accuracy(output_dataframe$PredictedWhiff, output_dataframe$ActualWhiff)
+
+
+valid_set %>% 
+  # filter(pitch_name == "4-Seam Fastball") %>% 
+  group_by(pitch_name_full) %>% summarise(
+  Total = n(),
+  PredictedWhiff = 100*(round(mean(probabilities), 3)),
+  ActualWhiff = round(100*(sum(description == "swinging_strike")/
+                             sum(description == "swinging_strike",
+                                 description == "foul",
+                                 description == "hit_into_play")), 1),
+  Scaled = round(mean(pred_whiff_scaled), 0),
+  Diff = round(PredictedWhiff - ActualWhiff, 1),
+  Velo = round(mean(release_speed), 1),
+  Vert = round(mean(pfx_z), 1),
+  Horz = round(mean(pfx_x), 1)
+) %>% filter(Total > 100) %>% arrange(desc(Scaled)) %>% gt() %>% gt_theme_538()
+
+
+valid_set %>% group_by(pitch_name) %>% summarise(
+  Total = n(),
+  PredictedWhiff = 100*(round(mean(probabilities), 3)),
+  ActualWhiff = round(100*(sum(description == "swinging_strike")/
+                             sum(description == "swinging_strike",
+                                 description == "foul",
+                                 description == "hit_into_play")), 1),
+  Scaled = round(mean(rescaled_values), 0),
+  Diff = round(PredictedWhiff - ActualWhiff, 1)
+  ) %>% filter(Total > 100) %>% arrange(desc(Scaled)) %>% gt() %>% gt_theme_538()
+
+valid_set %>% group_by(player_name) %>% summarise(
+  Total = n(),
+  PredictedWhiff = 100*(round(mean(probabilities), 3)),
+  ActualWhiff = round(100*(sum(description == "swinging_strike")/
+                             sum(description == "swinging_strike",
+                                 description == "foul",
+                                 description == "hit_into_play")), 1),
+  Scaled = round(mean(rescaled_values), 0),
+  Diff = round(PredictedWhiff - ActualWhiff, 1)
+) %>% filter(Total > 100) %>% arrange(desc(Scaled)) %>% gt() %>% gt_theme_538()
+
+
+output_dataframe %>% ggplot(aes(Velo, PredictedWhiff)) +
+  geom_point() + 
+  geom_smooth() + 
+  theme_light()
+
+cor(output_dataframe$PredictedWhiff, output_dataframe$ActualWhiff)
+
+
+
+MLB2024$probabilities <- predict(XGBmodel, as.matrix(MLB2024[, c(5, 6, 7, 29, 30, 59, 58)]))
+MLB2024 %>% group_by(pitch_name_full) %>% summarise(
+  Total = n(),
+  PredictedWhiff = 100*(round(mean(probabilities), 3)),
+  ActualWhiff = round(100*(sum(description == "swinging_strike")/
+                             sum(description == "swinging_strike",
+                                 description == "foul",
+                                 description == "hit_into_play")), 1),
+  Diff = round(PredictedWhiff - ActualWhiff, 1),
+  Velo = round(mean(release_speed), 1),
+  Vert = round(mean(pfx_z), 1),
+  Horz = round(mean(pfx_x), 1)
+) %>% filter(Total > 100) %>% arrange(desc(PredictedWhiff)) %>% gt() %>% gt_theme_538()
+
+
+
+
+
+
+
+newdata2024 <- MLB2024[, c('release_speed', 'release_pos_x', 'release_pos_z', 'pfx_x', 'pfx_z', 'release_extension')]
+MLB2024$probabilities <- predict(whiff_model, as.matrix(newdata2024))
+MLB2024 <- MLB2024 %>% mutate("pred_whiff_scaled" = (probabilities/mean(probabilities))*100)
+standardized_values <- (MLB2024$pred_whiff_scaled - mean(MLB2024$pred_whiff_scaled)) / sd(MLB2024$pred_whiff_scaled)
+MLB2024$rescaled_values <- standardized_values * 20 + 100
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+library(glm2)
+logistic_model <- glm(y ~ ., data = x, family = binomial())
+valid_set$pred_whiff <- predict(logistic_model, newdata = x_valid, type = "response")
+mean_whiff <- mean(valid_set$pred_whiff, na.rm = TRUE)
+valid_set <- valid_set %>% mutate("pred_whiff_scaled" = (pred_whiff/mean_whiff)*100)
+var_imp_matrix(logistic_model)
+
+
+valid_set %>% filter(pitch_name == "4-Seam Fastball",
+                     p_throws == "R", release_pos_z > 4, release_pos_z < 5.5,
+                     release_speed > 60, release_speed < 100) %>% 
+  ggplot(aes(pfx_x, pfx_z, color = pred_whiff_scaled)) + 
+  geom_point() +
+  geom_segment(x=-30, xend=30, y=0, yend=0, color = "black") + 
+  geom_segment(x=0, xend=0, y=-30, yend=30, color = "black") +
+  labs(x = "Horizontal Break(in.)", y = "Induced Vertical Break(in.)") + 
+  scale_color_gradient2(low = "blue", mid = "white", high = "red", midpoint = 100) +
+  coord_equal(xlim = c(-25, 25), ylim = c(-25, 25)) + theme_dark()
+

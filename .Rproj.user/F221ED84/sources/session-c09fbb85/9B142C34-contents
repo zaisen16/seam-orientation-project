@@ -1,0 +1,10 @@
+
+
+
+
+predict(knnModel, newdata = (TrackMan_Combined_2025 %>% filter(Pitcher == "Grable, Ben")))
+
+
+
+
+

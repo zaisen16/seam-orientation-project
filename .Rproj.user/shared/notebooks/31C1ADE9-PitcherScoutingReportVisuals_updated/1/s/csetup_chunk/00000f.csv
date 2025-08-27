@@ -1,0 +1,15 @@
+"0","# Import csv for the starting pitcher to make the report on
+Pitcher <- read_csv(""~/Downloads/StartingPitcher.csv"")
+"
+"2","[1mRows: [22m[34m418[39m [1mColumns: [22m[34m208[39m"
+"2","[36m──[39m [1mColumn specification[22m [36m──────────────────────────────────────────────────────────────────────────────────────────────────[39m
+[1mDelimiter:[22m "",""
+[31mchr[39m   (41): Pitcher, Last.Name, First.Name, PitcherThrows, PitcherTeam, Batter, BatterSide, BatterTeam, PitcherSet, To...
+[32mdbl[39m  (151): PitchNo, PAofInning, PitchofPA, PitcherId, BatterId, Inning, Outs, Balls, Strikes, OutsOnPlay, RunsScored,...
+[33mlgl[39m    (7): Notes, MeasuredDuration, PitchLastMeasuredX, PitchLastMeasuredY, PitchLastMeasuredZ, GameForeignID, SpinAx...
+[34mdttm[39m   (2): LocalDateTime, UTCDateTime
+[34mdate[39m   (3): Date, UTCDate, GameDate
+[34mtime[39m   (4): Time, Tilt, UTCTime, SpinAxis3dTilt"
+"2","
+[36mℹ[39m Use `spec()` to retrieve the full column specification for this data.
+[36mℹ[39m Specify the column types or set `show_col_types = FALSE` to quiet this message."

@@ -1,0 +1,195 @@
+library(xgboost)
+library(ggplot2)
+
+
+CCBL_3d_spin <- CCBL_Combined_2025 %>% filter(!is.na(SpinAxis3dSeamOrientationBallAngleHorizontalAmb1),
+                                              !is.na(SpinAxis3dSeamOrientationBallAngleVerticalAmb1),
+                                              !is.na(InducedVertBreak), !is.na(HorzBreak)) %>% filter(HomeTeam != "BRE_WHI")
+
+NCAA_3D_Spin <- read.csv("~/Downloads/3DSpin2025.csv") 
+NCAA_3D_Spin <- NCAA_3D_Spin %>% filter(!is.na(InducedVertBreak), !is.na(HorzBreak))
+
+
+###########################################
+# HorzBreak Model WITHOUT Seam Orientation
+###########################################
+
+# --- 1. Data Preparation ---
+set.seed(0)
+
+# Split into training and validation sets
+train_size <- 0.5 * nrow(NCAA_3D_Spin)
+train_index <- sample(x = 1:nrow(NCAA_3D_Spin), size = train_size)
+
+train_set <- NCAA_3D_Spin[train_index, ]
+valid_set <- NCAA_3D_Spin[-train_index, ]
+
+# Define features (X) and target (y) for training
+x <- train_set[, c("SpinRate", "SpinAxis", "SpinAxis3dSpinEfficiency")]
+
+y <- train_set$HorzBreak
+
+# Validation features
+x_valid <- valid_set[, c("SpinRate", "SpinAxis", "SpinAxis3dSpinEfficiency")]
+
+
+# --- 2. Model Training ---
+horz_break_model_no_seam_eff <- xgboost(
+  data        = as.matrix(x),
+  label       = y,
+  max_depth   = 7,
+  nrounds     = 100,
+  eta         = 0.1,
+  early_stopping_rounds = 20,
+  objective   = "reg:squarederror",
+  eval_metric = "rmse",
+  verbose     = 1
+)
+
+
+# --- 3. Model Evaluation ---
+# Feature importance
+var_imp_matrix <- xgb.importance(model = horz_break_model_no_seam_eff)
+xgb.plot.importance(var_imp_matrix)
+
+# Predictions on validation set
+new_data <- xgb.DMatrix(data = as.matrix(x_valid))
+valid_set$horz_no_seam_eff <- predict(horz_break_model_no_seam_eff, new_data)
+
+# Plot actual vs predicted Horz Break
+valid_set %>% ggplot(aes(HorzBreak, horz_no_seam_eff)) + 
+  geom_point(na.rm = TRUE)
+
+
+
+
+
+
+
+#################################################
+# InducedVertBreak model WITHOUT seam orientation
+#################################################
+
+# --- 1. Data Preparation ---
+set.seed(0)
+
+# Split into training and validation sets
+train_size <- 0.5 * nrow(NCAA_3D_Spin)
+train_index <- sample(x = 1:nrow(NCAA_3D_Spin), size = train_size)
+
+train_set <- NCAA_3D_Spin[train_index, ]
+valid_set <- NCAA_3D_Spin[-train_index, ]
+
+# Define features (X) and target (y) for training
+x <- train_set[, c("SpinRate", "SpinAxis", "SpinAxis3dSpinEfficiency")]
+
+y <- train_set$InducedVertBreak
+
+# Validation features
+x_valid <- valid_set[, c("SpinRate", "SpinAxis", "SpinAxis3dSpinEfficiency")]
+
+
+# --- 2. Model Training ---
+vert_break_model_no_seam_eff <- xgboost(
+  data        = as.matrix(x),
+  label       = y,
+  max_depth   = 7,
+  nrounds     = 100,
+  eta         = 0.1,
+  early_stopping_rounds = 20,
+  objective   = "reg:squarederror",
+  eval_metric = "rmse",
+  verbose     = 1
+)
+
+
+# --- 3. Model Evaluation ---
+# Feature importance
+var_imp_matrix <- xgb.importance(model = vert_break_model_no_seam_eff)
+xgb.plot.importance(var_imp_matrix)
+
+# Predictions on validation set
+new_data <- xgb.DMatrix(data = as.matrix(x_valid))
+valid_set$vert_no_seam_eff <- predict(vert_break_model_no_seam_eff, new_data)
+
+# Plot actual vs predicted Horz Break
+valid_set %>% ggplot(aes(InducedVertBreak, vert_no_seam_eff)) + 
+  geom_point(na.rm = TRUE)
+
+
+
+
+
+# ------ Predict onto CCBL dataset ---------
+# (If training w/ NCAA data)
+
+# Predictions onto NCAA dataset(w/ 3D)
+CCBL_test <- CCBL_3d_spin[, c("SpinRate", "SpinAxis", "SpinAxis3dSpinEfficiency")]
+
+# Predict HorzBreak
+new_data <- xgb.DMatrix(data = as.matrix(CCBL_test))
+CCBL_3d_spin$horz_no_seam_eff <- as.numeric(predict(horz_break_model_no_seam_eff, new_data))
+
+# Predict InducedVertBreak
+new_data <- xgb.DMatrix(data = as.matrix(CCBL_test))
+CCBL_3d_spin$vert_no_seam_eff <- as.numeric(predict(vert_break_model_no_seam_eff, new_data))
+
+CCBL_3d_spin %>% filter(Pitcher == "Marsten, Duncan") %>% 
+  ggplot(aes(HorzBreak, InducedVertBreak)) +
+  geom_segment(x=-30, xend=30, y=0, yend=0, color = "black") +
+  geom_segment(x=0, xend=0, y=-30, yend=30, color = "black") +
+  coord_equal(xlim = c(-25, 25), ylim = c(-25, 25)) +
+  geom_point(aes(fill = TaggedPitchType), shape = 21, color = "black", size = 2) +
+  labs(x = NULL, y = NULL) +
+  stat_ellipse(aes(horz_no_seam_eff, vert_no_seam_eff, color = TaggedPitchType, fill = TaggedPitchType),
+               geom = "polygon", alpha = 0.3, level = 0.9, type = "t",
+               linetype = "dashed", show.legend = FALSE) + 
+  scale_color_manual(values = TMcolors) + 
+  scale_fill_manual(values = TMcolors) + theme_light()
+
+
+
+
+# ------ Predict onto NCAA dataset ---------
+# (If training w/ CCBL data)
+
+# Predictions onto NCAA dataset(w/ 3D)
+NCAA_test <- NCAA_3D_Spin[, c("SpinRate", "SpinAxis", "SpinAxis3dSpinEfficiency")]
+
+# Predict HorzBreak
+new_data <- xgb.DMatrix(data = as.matrix(NCAA_test))
+NCAA_3D_Spin$horz_no_seam_eff <- as.numeric(predict(horz_break_model_no_seam_eff, new_data))
+
+# Predict InducedVertBreak
+new_data <- xgb.DMatrix(data = as.matrix(NCAA_test))
+NCAA_3D_Spin$vert_no_seam_eff <- as.numeric(predict(vert_break_model_no_seam_eff, new_data))
+
+
+
+
+
+NCAA_3D_Spin %>% filter(Pitcher == "Gilley, Cole") %>% 
+  ggplot(aes(HorzBreak, InducedVertBreak)) +
+  geom_segment(x=-30, xend=30, y=0, yend=0, color = "black") +
+  geom_segment(x=0, xend=0, y=-30, yend=30, color = "black") +
+  coord_equal(xlim = c(-25, 25), ylim = c(-25, 25)) +
+  geom_point(aes(fill = TaggedPitchType), shape = 21, color = "black", size = 2) +
+  labs(x = NULL, y = NULL) +
+  stat_ellipse(aes(horz_no_seam_eff, vert_no_seam_eff, color = TaggedPitchType, fill = TaggedPitchType),
+               geom = "polygon", alpha = 0.3, level = 0.9, type = "t",
+               linetype = "dashed", show.legend = FALSE) + 
+  scale_color_manual(values = TMcolors) + 
+  scale_fill_manual(values = TMcolors) + theme_light()
+
+
+NCAA_3D_Spin <- NCAA_3D_Spin %>% mutate(PitcherPitchType = paste0(Pitcher, ": ", TaggedPitchType))
+NCAA_3D_Spin %>% filter(TaggedPitchType == "Sweeper") %>% group_by(PitcherPitchType) %>% summarize(
+  n = n(),
+  Horz = round(mean(HorzBreak), 1),
+  Vert = round(mean(InducedVertBreak), 1),
+  pred_Horz = round(mean(horz_no_seam_eff), 1),
+  pred_Vert = round(mean(vert_no_seam_eff), 1),
+  diff_Horz = Horz - pred_Horz,
+  diff_Vert = Vert - pred_Vert
+) %>% filter(n > 10) %>% arrange((diff_Horz)) %>% slice_head(n = 50) %>% gt() %>% gt_theme_538()
+

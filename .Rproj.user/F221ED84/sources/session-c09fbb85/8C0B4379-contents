@@ -1,0 +1,15 @@
+library(readr)
+library(dplyr)
+
+TrackMan_Combined_2025 <- read_csv("~/Downloads/TrackMan_Combined_2025.csv")
+
+CCBL_Combined_2025 <- read_csv("~/Downloads/CCBL_2025_Master_w_RV_Fixed.csv")
+
+
+SynergyVideoPitcher <- TrackMan_Combined_2025 %>% filter(Pitcher == "Friedman, Pierce", Date == "2025-05-17")
+SynergyVideoPitcher <- CCBL_Combined_2025 %>% filter(Pitcher == "Johnson, Olin", Date == "2025-07-31")
+
+write_csv(SynergyVideoPitcher, "~/Downloads/Johnson.csv")
+
+
+

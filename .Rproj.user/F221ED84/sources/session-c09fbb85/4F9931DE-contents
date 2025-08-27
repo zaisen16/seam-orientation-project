@@ -1,0 +1,21 @@
+NCAA_3D_Spin <- read.csv("~/Downloads/3DSpin2025.csv")
+
+
+unique(NCAA_3D_Spin$TaggedPitchType)
+
+library(dplyr)
+
+NCAA_3D_Spin <- NCAA_3D_Spin %>%
+  mutate(TaggedPitchType = case_when(
+    TaggedPitchType == "FF" ~ "Fastball",
+    TaggedPitchType == "CH" ~ "Changeup",
+    TaggedPitchType == "CB" ~ "Curveball",
+    TaggedPitchType == "SL" ~ "Slider",
+    TaggedPitchType == "CT" ~ "Cutter",
+    TaggedPitchType == "FT" ~ "Sinker",
+    TaggedPitchType == "KN" ~ "Knuckleball",
+    TaggedPitchType == "Sweeper" ~ "Sweeper",
+    TRUE ~ TaggedPitchType   # keep "Undefined" or anything else as-is
+  ))
+
+

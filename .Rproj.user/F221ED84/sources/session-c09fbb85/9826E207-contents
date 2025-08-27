@@ -1,0 +1,236 @@
+# Load in all MLB data from 2024(saved in downloads folder)
+all_mlb2024 <- read_csv("~/Downloads/MLB_2024_data.csv")
+
+# Data preparation
+all_mlb2024 <- all_mlb2024 %>% mutate(pfx_x = -pfx_x*12, plate_x = -plate_x, pfx_z = pfx_z*12) %>%
+  filter(!pitch_name == "Intentional Ball", !pitch_name == "Pitch Out",
+         !pitch_name == "", !pitch_name == "Other", stand == "R") %>% 
+  mutate(kzone = ifelse(c(plate_x >= -0.71 & plate_x <= 0.71 & 
+                            plate_z >= 1.5 & plate_z <= 3.5), 1, 0)) %>% 
+  mutate(Exit_velocity = ifelse(c(description == "hit_into_play" & launch_speed > 95), "> 95mph", "< 95mph")) %>% 
+  filter(game_type == "R" | game_type == "F" | game_type == "D" | 
+           game_type == "L" | game_type == "W") %>% mutate(hc_y == 1*(hc_y-200)) %>% VAA() %>% HAA()
+
+all_mlb2024$pitch_name_full <- paste(all_mlb2024$player_name, ": ", all_mlb2024$pitch_name)
+
+
+
+# Data modeling to add stuff+/whiff+
+all_mlb2024$probabilities <- predict(whiff_model, as.matrix(all_mlb2024[ , c(3, 4, 5, 28, 29, 57)]))
+all_mlb2024 <- all_mlb2024 %>% mutate("pred_whiff_scaled" = (probabilities/mean(probabilities))*100)
+standardized_values <- (all_mlb2024$pred_whiff_scaled - mean(all_mlb2024$pred_whiff_scaled)) / sd(all_mlb2024$pred_whiff_scaled)
+all_mlb2024$rescaled_values <- standardized_values * 20 + 100
+
+
+
+
+# Plotting pitch movement plot
+angle_min <- 45
+angle_max <- 55
+all_mlb2024 %>% filter(arm_angle > angle_min, arm_angle < angle_max, p_throws == "R",
+                       rescaled_values > 90, rescaled_values < 110, release_speed > 65,
+                       pitch_name == "Curveball" | pitch_name == "Sweeper" | pitch_name == "Slider" | pitch_name == "Knuckle Curve" | pitch_name == "Slurve") %>% ggplot(aes(pfx_x, pfx_z)) +
+  geom_segment(x=-30, xend=30, y=0, yend=0, color = "black") +
+  geom_segment(x=0, xend=0, y=-30, yend=30, color = "black") +
+  coord_equal(xlim = c(-25, 25), ylim = c(-25, 25)) +
+  geom_segment(x = 0, xend = 40*cos(angle_min*pi/180), y = 0, yend = 40*sin(angle_min*pi/180), color = "navy", linetype = 2) +
+  geom_segment(x = 0, xend = 40*cos(angle_max*pi/180), y = 0, yend = 40*sin(angle_max*pi/180), color = "navy", linetype = 2) +
+  geom_hex(aes(x = pfx_x, y = pfx_z, fill = ..value.., z = release_speed), bins = 25, stat = "summary_hex", fun = "mean", color = "black") +
+  labs(x = "Horizontal Movement(in.)", y = "Induced Vertical Movement(in.)", title = paste("RHP Arm Angles between ", angle_min, "&",
+                                                                                            angle_max, "deg."),
+       subtitle = "xWhiff+ between 90 and 110") +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 80, name = "Velocity(mph)") +
+  theme_light()
+
+### Horizontal movement vs Velocity
+# Avg velo based on sweep, breaking balls with around 0 inches of vert
+all_mlb2024 %>% filter(arm_angle > angle_min, arm_angle < angle_max, p_throws == "R",
+                       rescaled_values > 90, rescaled_values < 110, release_speed > 65,
+                       pitch_name == "Curveball" | pitch_name == "Sweeper" | pitch_name == "Slider" | pitch_name == "Knuckle Curve" | pitch_name == "Slurve",
+                       pfx_z > -3, pfx_z < 3) %>% ggplot(aes(pfx_x, release_speed)) + geom_smooth(aes(pfx_x)) + theme_light()
+
+
+## Horizontal Movement vs xWhiff+
+all_mlb2024 %>% filter(arm_angle > angle_min, arm_angle < angle_max, p_throws == "R", release_speed > 65,
+                       pitch_name == "Curveball" | pitch_name == "Sweeper" | pitch_name == "Slider" | pitch_name == "Knuckle Curve" | pitch_name == "Slurve",
+                       pfx_z > -3, pfx_z < 3) %>% ggplot(aes(pfx_x, rescaled_values)) + geom_smooth(aes(pfx_x)) + theme_light()
+
+
+
+# Table grouping by movement bucket
+all_mlb2024 %>% filter(arm_angle > angle_min, arm_angle < angle_max, p_throws == "R",
+                       rescaled_values > 90, rescaled_values < 110,
+                       pitch_name == "Curveball" | pitch_name == "Sweeper" | pitch_name == "Slider") %>% mutate(
+                         movement_bucket = case_when(
+                           pfx_z > -25 & pfx_z <= -10 & pfx_x > -10 & pfx_x <= 5  ~ "12-6 CB: IVB(-20, -10) & HB(-10, 10)",
+                           pfx_z > -5 & pfx_z <= 5 & pfx_x > -10 & pfx_x <= -5  ~ "Short SL: IVB(-5, 5) & HB(-10, -5)",
+                           pfx_z > -5 & pfx_z <= 0 & pfx_x > -5 & pfx_x <= 5    ~ "Gyro: IVB(0, -5) & HB(-5, 0)",
+                           pfx_z > -10 & pfx_z <= -5 & pfx_x > -10 & pfx_x <= 5    ~ "Deathball: IVB(-10, -5) & HB(-10, 0)",
+                           pfx_z > -5 & pfx_z <= 10 & pfx_x > -20 & pfx_x <= -10  ~ "Sweeper: IVB(-5, 10) & HB(-20, -10)",
+                           pfx_z > -25 & pfx_z <= -5 & pfx_x > -25 & pfx_x <= -10  ~ "Sweeping CB: IVB(-20, -5) & HB(-20, -10)",
+                           pfx_z > 0 & pfx_z <= 5 & pfx_x > -5 & pfx_x <= 0  ~ "Slutter: IVB(0, 5) & HB(-10, 0)",
+                           pfx_z > 5 & pfx_z <= 15 & pfx_x > -10 & pfx_x <= 5  ~ "Cutter: IVB(5, 10) & HB(-10, 10)",
+                         )
+                         ) %>% group_by(movement_bucket) %>% summarise(
+                           velo = round(mean(release_speed), 1),
+                           Total = n()
+                         ) %>% arrange(desc(velo)) %>% gt() %>% gt_theme_538()
+
+
+# Visualizing movement buckets
+movement_buckets <- data.frame(
+  bucket_name = c("12-6 CB", "Gyro", "Deathball", "Sweeper", "Sweeping CB", "Slutter", "Cutter", "Short SL"),
+  x_min = c(-10, -5, -10, -25, -25, -5, -10, -10),
+  x_max = c(5, 5, 5, -10, -10, 0, 5, -5),
+  z_min = c(-25, -5, -10, -5, -25, 0, 5, -5),
+  z_max = c(-10, 0, -5, 10, -5, 5, 15, 5)
+) %>%
+  mutate(
+    center_x = (x_min + x_max) / 2,
+    center_z = (z_min + z_max) / 2,
+    label_group = ifelse(bucket_name %in% c("Sweeper", "12-6 CB", "Sweeping CB", "Cutter"), "Group1", "Group2")
+  )
+
+
+ggplot() +
+  geom_segment(aes(x = -30, xend = 30, y = 0, yend = 0), color = "black") +
+  geom_segment(aes(x = 0, xend = 0, y = -30, yend = 30), color = "black") +
+  # Add buckets as rectangles
+  geom_rect(
+    data = movement_buckets,
+    aes(xmin = x_min, xmax = x_max, ymin = z_min, ymax = z_max, fill = bucket_name),
+    alpha = 0.4, # Transparency for better visibility
+    color = "black"
+  ) +
+  geom_label_repel(
+    data = movement_buckets,
+    aes(
+      x = center_x,
+      y = center_z,
+      label = bucket_name
+    ),
+    size = 5, fontface = "bold", box.padding = 0,
+    point.padding = 0, segment.color = "black", 
+    label.size = 0.5 # Adjust thickness of the label border
+  ) +
+  # Add bucket labels
+  # geom_label_repel(
+  #   data = movement_buckets %>% filter(label_group == "Group1"),
+  #   aes(
+  #     x = center_x,
+  #     y = center_z,
+  #     label = bucket_name
+  #   ),
+  #   size = 4, fontface = "bold",
+  #   box.padding = 0, # No padding
+  #   point.padding = 0, # No padding
+  #   segment.color = "black",
+  #   label.size = 0.5 # Adjust thickness of label border
+  # ) +
+  # geom_label_repel(
+  #   data = movement_buckets %>% filter(label_group == "Group2"),
+  #   aes(
+  #     x = center_x,
+  #     y = center_z,
+  #     label = bucket_name
+  #   ),
+  #   size = 3.5, fontface = "bold",
+  #   box.padding = 0.5, # Larger padding
+  #   point.padding = 0.3, # More padding
+  #   segment.color = "black",
+  #   label.size = 0.5 # Thicker label border
+  # ) +
+  coord_equal(xlim = c(-25, 25), ylim = c(-25, 25)) +
+  labs(x = "Horizontal Movement(in.)", y = "Induced Vertical Movement(in.)") +
+  theme_light()
+
+
+
+angle_min <- 0
+angle_max <- 90
+all_mlb2024 %>% filter(arm_angle > angle_min, arm_angle < angle_max, p_throws == "R", release_speed > 65,
+                       pitch_name == "Curveball" | pitch_name == "Sweeper" | pitch_name == "Slider") %>% ggplot(aes(pfx_x, pfx_z)) +
+  geom_segment(x=-30, xend=30, y=0, yend=0, color = "black") +
+  geom_segment(x=0, xend=0, y=-30, yend=30, color = "black") +
+  coord_equal(xlim = c(-25, 25), ylim = c(-25, 25)) +
+  geom_segment(x = 0, xend = 40*cos(angle_min*pi/180), y = 0, yend = 40*sin(angle_min*pi/180), color = "navy", linetype = 2) +
+  geom_segment(x = 0, xend = 40*cos(angle_max*pi/180), y = 0, yend = 40*sin(angle_max*pi/180), color = "navy", linetype = 2) +
+  geom_hex(aes(x = pfx_x, y = pfx_z, fill = ..value.., z = rescaled_values), bins = 25, stat = "summary_hex", fun = "mean", color = "black") +
+  labs(x = "Horizontal Movement(in.)", y = "Induced Vertical Movement(in.)", title = paste("xWhiffs+ RHP Arm Angles between ", angle_min, "&",
+                                                                                           angle_max, "deg.")) +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 100, name = "xWhiff+") +
+  theme_light()
+
+
+
+
+all_mlb2024 %>% group_by(pitch_name_full) %>% summarise(
+  Total = n(),
+  PredictedWhiff = 100*(round(mean(probabilities), 3)),
+  ActualWhiff = round(100*(sum(description == "swinging_strike")/
+                             sum(description == "swinging_strike",
+                                 description == "foul",
+                                 description == "hit_into_play")), 1),
+  Scaled = round(mean(rescaled_values), 0),
+  Diff = round(PredictedWhiff - ActualWhiff, 1),
+  Velo = round(mean(release_speed), 1),
+  Vert = round(mean(pfx_z), 1),
+  Horz = round(mean(pfx_x), 1),
+  ArmAngle = round(mean(arm_angle), 0)
+) %>% filter(Total > 100) %>% arrange(desc(Scaled)) %>% gt() %>% gt_theme_538()
+
+all_mlb2024[(player_name == "Miller, Bryce") , ]
+
+
+
+
+
+
+# Data for Bryce Miller use-case in article
+Bryce_Miller_2023 <- scrape_statcast_savant_pitcher(start_date = "2023-01-01",
+                                                    end_date = "2023-12-31",
+                                                    pitcherid = 682243) %>%
+  mutate(pfx_x = -pfx_x*12, plate_x = -plate_x, pfx_z = pfx_z*12) %>%
+  filter(!pitch_name == "Intentional Ball", !pitch_name == "Pitch Out",
+         !pitch_name == "", !pitch_name == "Other", stand == "R") %>% 
+  mutate(kzone = ifelse(c(plate_x >= -0.71 & plate_x <= 0.71 & 
+                            plate_z >= 1.5 & plate_z <= 3.5), 1, 0)) %>% 
+  mutate(Exit_velocity = ifelse(c(description == "hit_into_play" & launch_speed > 95), "> 95mph", "< 95mph")) %>% 
+  filter(game_type == "R" | game_type == "F" | game_type == "D" | 
+           game_type == "L" | game_type == "W") %>% mutate(hc_y == 1*(hc_y-200))
+Bryce_Miller_2024 <- scrape_statcast_savant_pitcher(start_date = "2024-01-01",
+                                                    end_date = "2024-12-31",
+                                                    pitcherid = 682243) %>%
+  mutate(pfx_x = -pfx_x*12, plate_x = -plate_x, pfx_z = pfx_z*12) %>%
+  filter(!pitch_name == "Intentional Ball", !pitch_name == "Pitch Out",
+         !pitch_name == "", !pitch_name == "Other", stand == "R") %>% 
+  mutate(kzone = ifelse(c(plate_x >= -0.71 & plate_x <= 0.71 & 
+                            plate_z >= 1.5 & plate_z <= 3.5), 1, 0)) %>% 
+  mutate(Exit_velocity = ifelse(c(description == "hit_into_play" & launch_speed > 95), "> 95mph", "< 95mph")) %>% 
+  filter(game_type == "R" | game_type == "F" | game_type == "D" | 
+           game_type == "L" | game_type == "W") %>% mutate(hc_y == 1*(hc_y-200))
+
+
+Bryce_Miller_All <- rbind(Bryce_Miller_2023, Bryce_Miller_2024)
+# Put xWhiff+ model on
+BMnewdata <- Bryce_Miller_All[, c('release_speed', 'release_pos_x', 'release_pos_z', 'pfx_x', 'pfx_z', 'release_extension')]
+Bryce_Miller_All$probabilities <- predict(whiff_model, as.matrix(BMnewdata))
+Bryce_Miller_All <- Bryce_Miller_All %>% mutate("pred_whiff_scaled" = (probabilities/mean(probabilities))*100)
+standardized_values <- (Bryce_Miller_All$pred_whiff_scaled - mean(all_mlb2024$pred_whiff_scaled)) / sd(all_mlb2024$pred_whiff_scaled)
+Bryce_Miller_All$rescaled_values <- standardized_values * 20 + 100
+
+
+Bryce_Miller_All %>% group_by(game_year, pitch_name) %>% summarize(
+  Total = n(),
+  PredictedWhiff = 100*(round(mean(probabilities), 3)),
+  ActualWhiff = round(100*(sum(description == "swinging_strike")/
+                             sum(description == "swinging_strike",
+                                 description == "foul",
+                                 description == "hit_into_play")), 1),
+  Scaled = round(mean(rescaled_values), 0),
+  Diff = round(PredictedWhiff - ActualWhiff, 1),
+  Velo = round(mean(release_speed), 1),
+  Vert = round(mean(pfx_z), 1),
+  Horz = round(mean(pfx_x), 1),
+  ArmAngle = round(mean(arm_angle), 0)
+) %>% filter(Total > 0) %>% arrange(desc(Scaled)) %>% gt() %>% gt_theme_538()

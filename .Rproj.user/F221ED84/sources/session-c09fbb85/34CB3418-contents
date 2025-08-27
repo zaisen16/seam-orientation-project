@@ -1,0 +1,65 @@
+MLB2024 <- read_csv("2024.csv") %>% mutate(pfx_x = -pfx_x*12, plate_x = -plate_x, pfx_z = pfx_z*12, release_pos_x = abs(release_pos_x)) %>%
+  filter(!pitch_name == "Intentional Ball", !pitch_name == "Pitch Out",
+         !pitch_name == "", !pitch_name == "Other", stand == "R") %>% 
+  mutate(kzone = ifelse(c(plate_x >= -0.71 & plate_x <= 0.71 & 
+                            plate_z >= 1.5 & plate_z <= 3.5), 1, 0)) %>% 
+  filter(game_type == "R" | game_type == "F" | game_type == "D" | 
+           game_type == "L" | game_type == "W")
+# Adding whiff binary
+MLB2024$whiff <- ifelse(MLB2024$description == "swinging_strike", 1, 0)
+# Adding swing binary
+MLB2024$swing <- ifelse(c(MLB2024$description == "swinging_strike" | MLB2024$description == "foul" | MLB2024$description == "hit_into_play"), 1, 0)
+# Adding hard hit binary
+MLB2024$hard_hit <- ifelse(MLB2024$description == "hit_into_play" & MLB2024$launch_speed > 95, 1, 0)
+# Adding pitcher name & pitch name(ex: 'Verlander, Justin: Curveball')
+MLB2024$pitch_name_full <- paste(MLB2024$pitcher_name, ": ", MLB2024$pitch_name)
+
+
+
+MLB2024 %>% filter(pitcher_name == "Skenes, Paul") %>% select(release_speed, pitch_name, rescaled_values) %>% arrange(desc(release_speed)) %>% print(n = 100)
+
+
+
+
+newdata2024 <- MLB2024[, c('release_speed', 'release_pos_x', 'release_pos_z', 'pfx_x', 'pfx_z', 'release_extension')]
+MLB2024$probabilities <- predict(whiff_model, as.matrix(newdata2024))
+MLB2024 <- MLB2024 %>% mutate("pred_whiff_scaled" = (probabilities/mean(probabilities))*100)
+standardized_values <- (MLB2024$pred_whiff_scaled - mean(MLB2024$pred_whiff_scaled)) / sd(MLB2024$pred_whiff_scaled)
+MLB2024$rescaled_values <- standardized_values * 20 + 100
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+MLB2024 %>% filter(pitcher_name == "Miller, Mason") %>% group_by(pitch_name_full) %>% summarise(
+  Total = n(),
+  PredictedWhiff = 100*(round(mean(probabilities), 3)),
+  ActualWhiff = round(100*(sum(description == "swinging_strike")/
+                             sum(description == "swinging_strike",
+                                 description == "foul",
+                                 description == "hit_into_play")), 1),
+  Scaled = round(mean(rescaled_values), 0),
+  Diff = round(PredictedWhiff - ActualWhiff, 1),
+  Velo = round(mean(release_speed), 1),
+  Vert = round(mean(pfx_z), 1),
+  Horz = round(mean(pfx_x), 1)
+) %>% filter(Total > 0) %>% arrange(desc(Scaled)) %>% gt() %>% gt_theme_538()
+
+
+
+# MLB2024 %>% ggplot(aes(release_pos_z, pred_whiff_scaled)) +
+#   geom_point() + 
+#   geom_smooth() + 
+#   theme_light()

@@ -1,0 +1,83 @@
+#Load in necessary items
+library(caret)
+library(tidymodels)
+library(recipes)
+library(class)
+library(tidyverse)
+# d1 <- read_feather("data/tm2025.feather")
+TrackMan_Combined_2025 <- read_csv("~/Downloads/TrackMan_Combined_2025.csv")
+d1 <- TrackMan_Combined_2025
+
+#GEN CLASS RHP
+#Clean data
+d1$TaggedPitchType <- ifelse(d1$TaggedPitchType %in% c("Cutter","Curveball","Slider","Sweeper"),"BB",
+                             ifelse(d1$TaggedPitchType %in% c("Fastball","Sinker"),"FB",
+                                    d1$TaggedPitchType))
+d2 <- d1 %>% 
+  filter(TaggedPitchType %in% c("FB","CH","BB") & PitcherThrows == "Right") %>% 
+  select(TaggedPitchType,RelSpeed,SpinRate,HorzBreak,InducedVertBreak,SpinAxis) %>% 
+  na.omit() %>% 
+  filter(HorzBreak >= -25 & HorzBreak <= 25 & 
+          InducedVertBreak >= -25 & InducedVertBreak <= 25 & 
+          SpinRate < 3000 & SpinRate > 700 & RelSpeed > 65)
+fb <- d2 %>% filter(TaggedPitchType == "FB" & HorzBreak >= -2 & InducedVertBreak > -2)
+ch <- d2 %>% filter(TaggedPitchType == "CH" & HorzBreak >= -4 & InducedVertBreak > -4)
+bb <- d2 %>% filter(TaggedPitchType == "BB" & HorzBreak <= 3)
+d2 <- rbind(fb,ch,bb)
+
+data <- d2 %>% group_by(TaggedPitchType) %>% sample_n(25000) %>% ungroup()
+table(data$TaggedPitchType)
+ggplot(data,aes(HorzBreak,InducedVertBreak,color = TaggedPitchType)) + geom_point()
+# write_feather(data,"data/cleanedknn.feather")
+write_csv(data, "~/Downloads/cleanedknn.csv")
+
+
+
+###TRAINING
+data <- read_feather("data/cleanedknn.feather")
+#Ensure consistency
+set.seed(100)
+data$TaggedPitchType <- as.factor(data$TaggedPitchType)
+#Splits
+split <- initial_split(data, strata = TaggedPitchType)
+train <- training(split)
+test <- testing(split)
+#Scale training data
+train_predictors <- train %>% select(-TaggedPitchType)
+train_scaled <- scale(train_predictors)
+# Save scaling parameters
+scale_means <- attr(train_scaled, "scaled:center")
+scale_sds <- attr(train_scaled, "scaled:scale")
+# Scale test data using training parameters
+test_predictors <- test %>% select(-TaggedPitchType)
+test_scaled <- scale(test_predictors, center = scale_means, scale = scale_sds)
+#Begin grid search for ideal k
+knnTrControl <- trainControl(method = "cv",number = 5,search = "grid")
+knnGrid = expand.grid(k = c(5:15))
+#Reattach tags
+train_data <- data.frame(train_scaled, TaggedPitchType = train$TaggedPitchType)
+#Search for k
+knnModel <- train(TaggedPitchType ~ .,data = train_data,method = "knn",trControl = knnTrControl,tuneGrid = knnGrid)
+print(knnModel)
+plot(knnModel)
+#Save the model
+saveRDS(knnModel,"PitchClass stuff/genclassrhp.RDS")
+
+
+###PREDICTIONS
+#Call best k
+best_k <- knnModel$bestTune$k
+#Scale train set and predict
+train_predictions <- predict(knnModel)
+confusionMatrix(train_predictions, train_data$TaggedPitchType)
+#Now, call the test set and predict
+test_data <- data.frame(test_scaled, TaggedPitchType = test$TaggedPitchType)
+test_predictions <- predict(knnModel, newdata = test_data)
+test$predtag <- test_predictions
+confusionMatrix(test_predictions, test_data$TaggedPitchType)
+
+
+ggplot(test, aes(HorzBreak, InducedVertBreak, color = predtag)) + geom_point()
+ggplot(test, aes(RelSpeed, SpinRate, color = predtag)) + geom_point()
+
+

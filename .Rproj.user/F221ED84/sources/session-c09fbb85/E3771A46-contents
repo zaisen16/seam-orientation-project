@@ -1,0 +1,311 @@
+# Single Mollweide Baseball Seam Orientation Chart
+# Simplified script to create one visualization
+
+library(png)
+library(grid)
+library(ggplot2)
+library(dplyr)
+
+# Function to convert Cartesian coordinates to spherical (lat/lon)
+cartesian_to_latlon <- function(x, y, z) {
+  # Normalize vectors (ensure unit sphere)
+  norm <- sqrt(x^2 + y^2 + z^2)
+  x <- x / norm
+  y <- y / norm  
+  z <- z / norm
+  
+  # Convert to spherical coordinates
+  longitude <- atan2(y, x)  # radians, -π to π
+  latitude <- asin(z)       # radians, -π/2 to π/2
+  
+  data.frame(longitude = longitude, latitude = latitude)
+}
+
+# Mollweide projection function
+mollweide_proj <- function(longitude, latitude) {
+  # Handle edge cases
+  latitude <- pmax(-pi/2 + 1e-10, pmin(pi/2 - 1e-10, latitude))
+  
+  # Solve for theta numerically using Newton-Raphson method
+  theta_solver <- function(phi) {
+    # Initial guess
+    theta <- phi
+    
+    # Newton-Raphson iteration
+    for(i in 1:20) {
+      f <- 2*theta + sin(2*theta) - pi*sin(phi)
+      df <- 2 + 2*cos(2*theta)
+      
+      if(abs(df) < 1e-12) break
+      
+      theta_new <- theta - f/df
+      if(abs(theta_new - theta) < 1e-12) break
+      theta <- theta_new
+    }
+    
+    return(theta)
+  }
+  
+  # Apply solver to all latitudes
+  theta <- sapply(latitude, theta_solver)
+  
+  # Mollweide projection equations
+  x <- (2 * sqrt(2) / pi) * longitude * cos(theta)
+  y <- sqrt(2) * sin(theta)
+  
+  data.frame(x = x, y = y)
+}
+
+# Function to read and process TrackMan data
+read_and_process_data <- function(pitcher_filter = NULL) {
+  
+  # Try to read TrackMan CSV
+  tryCatch({
+    df <- read.csv("~/Downloads/20250718-CCBLChatham-1_unverified.csv", stringsAsFactors = FALSE)
+    
+    # Look for seam orientation rotation columns
+    rotation_cols <- c("SpinAxis3dSeamOrientationRotationX", 
+                       "SpinAxis3dSeamOrientationRotationY", 
+                       "SpinAxis3dSeamOrientationRotationZ")
+    
+    if(all(rotation_cols %in% names(df))) {
+      df <- df %>%
+        rename(x = SpinAxis3dSeamOrientationRotationX,
+               y = SpinAxis3dSeamOrientationRotationY,
+               z = SpinAxis3dSeamOrientationRotationZ) %>%
+        filter(!is.na(x) & !is.na(y) & !is.na(z))
+      
+      cat("Loaded", nrow(df), "seam orientation measurements from TrackMan data\n")
+      
+    } else {
+      stop("Seam orientation columns not found")
+    }
+    
+  }, error = function(e) {
+    # Create sample data if CSV not available
+    cat("Using sample data (TrackMan CSV not found)\n")
+    set.seed(42)
+    n <- 100
+    phi <- runif(n, -pi/3, pi/3)
+    theta <- runif(n, 0, 2*pi)
+    
+    df <- data.frame(
+      x = cos(phi) * cos(theta),
+      y = cos(phi) * sin(theta),
+      z = sin(phi),
+      Pitcher = sample(c("Smith, J.", "Johnson, A.", "Brown, M.", "Davis, R."), n, replace = TRUE),
+      TaggedPitchType = sample(c("Fastball", "Curveball", "Slider", "Changeup", "Sinker"), n, replace = TRUE)
+    )
+  })
+  
+  # Filter by pitcher if specified
+  if(!is.null(pitcher_filter)) {
+    available_pitchers <- unique(df$Pitcher)
+    if(pitcher_filter %in% available_pitchers) {
+      df <- df %>% filter(Pitcher == pitcher_filter)
+      cat("Filtered to pitcher:", pitcher_filter, "-", nrow(df), "pitches\n")
+    } else {
+      cat("Available pitchers:\n")
+      print(available_pitchers)
+      stop("Pitcher '", pitcher_filter, "' not found in data")
+    }
+  }
+  
+  # Convert to spherical coordinates
+  latlon_coords <- cartesian_to_latlon(df$x, df$y, df$z)
+  
+  # Apply Mollweide projection
+  proj_coords <- mollweide_proj(latlon_coords$longitude, latlon_coords$latitude)
+  
+  # Check for valid projections
+  valid_projections <- !is.na(proj_coords$x) & !is.na(proj_coords$y) & 
+    is.finite(proj_coords$x) & is.finite(proj_coords$y)
+  
+  # Combine data
+  result <- df[valid_projections, ] %>%
+    mutate(
+      longitude = latlon_coords$longitude[valid_projections],
+      latitude = latlon_coords$latitude[valid_projections],
+      mollweide_x = proj_coords$x[valid_projections],
+      mollweide_y = proj_coords$y[valid_projections]
+    )
+  
+  cat("Successfully processed", nrow(result), "valid projections\n")
+  return(result)
+}
+
+# Main function to create the Mollweide visualization
+create_mollweide_chart <- function(pitcher_name = NULL, 
+                                   point_size = 1.5, 
+                                   point_alpha = 0.8,
+                                   show_grid = TRUE,
+                                   use_image = TRUE) {
+  
+  # Define pitch colors
+  pitch_colors <- c(
+    "Fastball" = "dodgerblue2",
+    "FourSeamFastBall" = "dodgerblue2", 
+    "FourSeamFastB" = "dodgerblue2",
+    "OneSeamFastBall" = "yellow",
+    "TwoSeamFastBall" = "yellow",
+    "Sinker" = "yellow",
+    "Cutter" = "orange",
+    "Changeup" = "#01FF70",
+    "ChangeUp" = "#01FF70",
+    "Slider" = "tomato",
+    "Sweeper" = "gold3",
+    "Curveball" = "#B10DC9",
+    "Splitter" = "#01FF70",
+    "Knuckleball" = "lightblue",
+    "Other" = "gray60",
+    "Undefined" = "gray40"
+  )
+  
+  # Process the data
+  proj_df <- read_and_process_data(pitcher_name)
+  
+  # Mollweide bounds
+  max_x <- 2 * sqrt(2)  # ≈ 2.828
+  max_y <- sqrt(2)      # ≈ 1.414
+  
+  # Try to create plot with image overlay
+  if(use_image) {
+    tryCatch({
+      # Load the Mollweide baseball image
+      img <- readPNG("FIoejdTWQAA4OuT.png")
+      cat("Baseball image loaded successfully!\n")
+      
+      # Create grid plot with image background
+      grid.newpage()
+      grid.raster(img, width = unit(1, "npc"), height = unit(1, "npc"))
+      
+      # Set up proper coordinate system
+      pushViewport(viewport(xscale = c(-max_x, max_x), yscale = c(-max_y, max_y)))
+      
+      # Add coordinate grid if requested
+      if(show_grid) {
+        grid.segments(x0 = seq(-2, 2, 0.5), y0 = -max_y, x1 = seq(-2, 2, 0.5), y1 = max_y,
+                      gp = gpar(col = "lightblue", alpha = 0.4, lty = 2, lwd = 1))
+        grid.segments(x0 = -max_x, y0 = seq(-1, 1, 0.5), x1 = max_x, y1 = seq(-1, 1, 0.5),
+                      gp = gpar(col = "lightblue", alpha = 0.4, lty = 2, lwd = 1))
+      }
+      
+      # Get pitch type colors
+      if("TaggedPitchType" %in% names(proj_df)) {
+        pitch_types <- proj_df$TaggedPitchType
+        point_colors <- sapply(pitch_types, function(pt) {
+          if(pt %in% names(pitch_colors)) pitch_colors[[pt]] else pitch_colors[["Other"]]
+        })
+      } else {
+        point_colors <- rep(pitch_colors[["Other"]], nrow(proj_df))
+      }
+      
+      # Add the seam orientation points
+      grid.points(x = proj_df$mollweide_x, y = proj_df$mollweide_y, 
+                  pch = 16, size = unit(point_size, "char"), 
+                  gp = gpar(col = point_colors, alpha = point_alpha))
+      
+      # Add white borders for visibility
+      grid.points(x = proj_df$mollweide_x, y = proj_df$mollweide_y, 
+                  pch = 1, size = unit(point_size + 0.2, "char"), 
+                  gp = gpar(col = "white", lwd = 2))
+      
+      # Add black borders for definition
+      grid.points(x = proj_df$mollweide_x, y = proj_df$mollweide_y, 
+                  pch = 1, size = unit(point_size + 0.2, "char"), 
+                  gp = gpar(col = "black", lwd = 1))
+      
+      popViewport()
+      
+      # Add title
+      grid.text(label = paste("Mollweide Baseball Seam Orientations", 
+                              ifelse(!is.null(pitcher_name), paste("- Pitcher:", pitcher_name), ""),
+                              "\n", nrow(proj_df), "TrackMan measurements"),
+                x = 0.5, y = 0.95, gp = gpar(fontsize = 14, fontface = "bold"))
+      
+      return(invisible(proj_df))
+      
+    }, error = function(e) {
+      cat("Could not load image, creating ggplot instead\n")
+      use_image <- FALSE
+    })
+  }
+  
+  # Fallback ggplot version
+  if(!use_image) {
+    # Add pitch type column
+    if("TaggedPitchType" %in% names(proj_df)) {
+      proj_df$PitchType <- proj_df$TaggedPitchType
+    } else {
+      proj_df$PitchType <- "Other"
+    }
+    
+    p <- ggplot() +
+      # Mollweide boundary
+      stat_function(fun = function(x) sqrt(2) * sqrt(1 - (x*pi/(2*sqrt(2)))^2), 
+                    xlim = c(-max_x, max_x), color = "black", size = 1.2) +
+      stat_function(fun = function(x) -sqrt(2) * sqrt(1 - (x*pi/(2*sqrt(2)))^2), 
+                    xlim = c(-max_x, max_x), color = "black", size = 1.2) +
+      
+      # Grid lines
+      {if(show_grid) {
+        list(
+          geom_vline(xintercept = seq(-2, 2, by = 0.5), color = "lightgray", alpha = 0.5),
+          geom_hline(yintercept = seq(-1, 1, by = 0.25), color = "lightgray", alpha = 0.5)
+        )
+      }} +
+      
+      # Data points with proper colors
+      geom_point(data = proj_df, 
+                 aes(x = mollweide_x, y = mollweide_y, color = PitchType), 
+                 size = point_size * 2, alpha = point_alpha) +
+      
+      scale_color_manual(values = pitch_colors) +
+      coord_fixed() +
+      xlim(-max_x * 1.1, max_x * 1.1) + ylim(-max_y * 1.1, max_y * 1.1) +
+      theme_minimal() +
+      theme(
+        panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, size = 12),
+        legend.position = "bottom"
+      ) +
+      labs(
+        title = paste("Baseball Seam Orientations on Mollweide Projection",
+                      ifelse(!is.null(pitcher_name), paste("- Pitcher:", pitcher_name), "")),
+        subtitle = paste("TrackMan 3D Spin Axis Data -", nrow(proj_df), "pitches"),
+        x = "Mollweide X Coordinate",
+        y = "Mollweide Y Coordinate",
+        color = "Pitch Type"
+      )
+    
+    print(p)
+    return(invisible(proj_df))
+  }
+}
+
+
+
+cat("=== Creating Mollweide Baseball Seam Orientation Chart ===\n")
+result <- create_mollweide_chart()
+
+# Display summary
+cat("\n=== SUMMARY ===\n")
+cat("Total points plotted:", nrow(result), "\n")
+cat("Mollweide X range:", round(range(result$mollweide_x), 3), "\n")
+cat("Mollweide Y range:", round(range(result$mollweide_y), 3), "\n")
+
+if("TaggedPitchType" %in% names(result)) {
+  cat("\nPitch type distribution:\n")
+  print(table(result$TaggedPitchType))
+}
+
+result <- create_mollweide_chart(
+  pitcher_name = "Alicea, Edwin",  # Your pitcher choice
+  point_size = 2.0,              # Larger points
+  point_alpha = 0.9,             # More opaque
+  show_grid = TRUE,              # Coordinate grid
+  use_image = TRUE               # Baseball image overlay
+)
+

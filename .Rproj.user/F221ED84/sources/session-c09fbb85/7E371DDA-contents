@@ -1,0 +1,20 @@
+
+library(mgcv)
+
+gam_hb <- gam(
+  HorzBreak ~ s(SpinAxis, k = 10) +
+    s(SpinAxis3dSpinEfficiency, k = 10) +
+    s(SpinRate, k = 10) +
+    s(SpinAxis3dSeamOrientationBallAngleHorizontalAmb1, k = 10) +
+    s(SpinAxis3dSeamOrientationBallAngleVerticalAmb1, k = 10) +
+    te(SpinAxis,
+       SpinAxis3dSeamOrientationBallAngleHorizontalAmb1, k = c(8,8)),
+  data = train_set, method = "REML"
+)
+
+summary(gam_hb)
+plot(gam_hb, pages = 1, shade = TRUE)
+
+
+gam.check(gam_hb)      # checks if k is large enough; looks for residual patterns
+concurvity(gam_hb)     # checks "non-linear collinearity" between smooths

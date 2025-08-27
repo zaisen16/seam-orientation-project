@@ -1,0 +1,135 @@
+devtools::install_github('charlie86/spotifyr', force = TRUE)
+library(sentify)
+library(spotifyr)
+library(httr2)
+
+client_id <- Sys.setenv(SPOTIFY_CLIENT_ID = "2c308b4c307140738501134494d2c627")
+client_secret <- Sys.setenv(SPOTIFY_CLIENT_SECRET = "40fdb5c931624c0198f9416640d203c2")
+access_token <- get_spotify_access_token()
+
+
+curl_translate('curl -X POST "https://accounts.spotify.com/api/token" \
+-H "Content-Type: application/x-www-form-urlencoded" \
+-d "grant_type=client_credentials&client_id=your-client-id&client_secret=your-client-secret"')
+
+
+req_access_token <- request("https://accounts.spotify.com/api/token") |> 
+  req_method("POST") |> 
+  req_body_raw("grant_type=client_credentials&client_id=2c308b4c307140738501134494d2c627&client_secret=40fdb5c931624c0198f9416640d203c2", "application/x-www-form-urlencoded") |> 
+  req_perform() |> resp_body_json()
+spotify_access_token <- req_access_token$access_token
+
+
+
+
+
+### Trying to get album now
+
+# curl translate the code given at spotify api website
+curl_translate("curl --request GET \
+               --url https://api.spotify.com/v1/albums/4aawyAB9vmqN3uQ7FjRGTy \
+               --header 'Authorization: Bearer 1POdFZRZbvb...qqillRxMr2z'")
+
+# paste in the output from the translate
+# returns the album(In Rainbows by Radiohead)
+in_rainbows <- request("https://api.spotify.com/v1/albums/5vkqYmiPBYLaalcmjujWxK") |> 
+  req_method("GET") |> 
+  req_headers(
+    Authorization = paste0("Bearer ", spotify_access_token),
+  ) |> 
+  req_perform() |> resp_body_json()
+
+in_rainbows$tracks$items[[10]]$name
+
+in_rainbows_df <- data.frame(
+  song_name = unlist(lapply(in_rainbows$tracks$items, FUN = function(x){x$name})), 
+  song_id = unlist(lapply(in_rainbows$tracks$items, FUN = function(x){x$id})),
+  duration = unlist(lapply(in_rainbows$tracks$items, FUN = function(x){x$duration_ms}))
+  # valence = unlist(lapply(in_rainbows$tracks$items, FUN = function(x){x$valence}))
+)
+
+unlist(lapply(in_rainbows$tracks$items, FUN = function(x){x$duration_ms}))
+
+
+
+# Testing a different album
+
+curl_translate("curl --request GET \
+               --url https://api.spotify.com/v1/albums/4aawyAB9vmqN3uQ7FjRGTy \
+               --header 'Authorization: Bearer 1POdFZRZbvb...qqillRxMr2z'")
+
+back_to_black <- request("https://api.spotify.com/v1/albums/0E4xv5gPjykrwBgBZzI8XG") |> 
+  req_method("GET") |> 
+  req_headers(
+    Authorization = paste0("Bearer ", spotify_access_token),
+  ) |> 
+  req_perform() |> resp_body_json()
+
+back_to_black$tracks$items[[10]]$name
+
+back_to_black_df <- data.frame(
+  song_name = unlist(lapply(back_to_black$tracks$items, FUN = function(x){x$name})), 
+  song_id = unlist(lapply(back_to_black$tracks$items, FUN = function(x){x$id})),
+  duration = unlist(lapply(back_to_black$tracks$items, FUN = function(x){x$duration_ms}))
+  # valence = unlist(lapply(in_rainbows$tracks$items, FUN = function(x){x$valence}))
+)
+
+unlist(lapply(back_to_black_df$tracks$items, FUN = function(x){x$duration_ms}))
+
+
+
+### Audio Analysis
+
+# First, always curl translate:
+curl_translate("curl --request GET \
+--url https://api.spotify.com/v1/audio-analysis/11dFghVXANMlKmJXsNCbNl \
+--header 'Authorization: Bearer 1POdFZRZbvb...qqillRxMr2z'")
+
+# Paste the output from above back in here
+# replace the last portion of the request line w/ link from spotify web,
+# replace end of authorization with your access token
+request("https://api.spotify.com/v1/audio-analysis/11dFghVXANMlKmJXsNCbNl") |> 
+  req_method("GET") |> 
+  req_headers(
+    Authorization = paste0("Bearer ", spotify_access_token),
+  ) |> 
+  req_perform() |> resp_body_json()
+
+
+
+# Making a loop for all songs(from this youtube video: https://www.youtube.com/watch?v=MLs0f9vNk9c&ab_channel=MelissaVanBussel%28ggnot2%29)
+tempo_list <- vector(mode = "list", length = nrow(back_to_black_df))
+for (i in nrow(back_to_black_df)){
+  audio_analysis <- request(paste0("https://api.spotify.com/v1/audio-analysis/", back_to_black_df$song_id[i])) |> 
+    req_method("GET") |> 
+    req_headers(
+      Authorization = paste0("Bearer ", spotify_access_token),
+    ) |> 
+    req_perform() |> resp_body_json()
+  
+  tempo_list[[i]] <-  unlist(lapply(audio_analysis$sections, FUN = function(x){x$tempo }))
+}
+
+
+
+
+Sys.setenv(SPOTIFY_CLIENT_ID = "2c308b4c307140738501134494d2c627")
+Sys.setenv(SPOTIFY_CLIENT_SECRET = "40fdb5c931624c0198f9416640d203c2")
+
+
+get_spotify_access_token()
+
+
+
+devtools::install_github('charlie86/spotifyr', force = TRUE)
+library(spotifyr)
+Sys.setenv(SPOTIFY_CLIENT_ID = "2c308b4c307140738501134494d2c627")
+Sys.setenv(SPOTIFY_CLIENT_SECRET = "40fdb5c931624c0198f9416640d203c2")
+access_token <- get_spotify_access_token()
+
+
+
+get_artist_audio_features('radiohead', authorization = spotify_access_token)
+
+
+

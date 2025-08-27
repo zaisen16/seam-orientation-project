@@ -1,0 +1,5 @@
+TrackMan_Combined_2025 <- read_csv("~/Downloads/TrackMan_Combined_2025.csv")
+
+Pitcher <- TrackMan_Combined_2025 %>% filter(Pitcher == "Stone, Duke")
+
+write_csv(Pitcher, "~/Downloads/StartingPitcher.csv")
