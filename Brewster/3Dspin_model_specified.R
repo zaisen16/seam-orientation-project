@@ -1,0 +1,149 @@
+CCBL_Combined_2025 <- read.csv("~/Downloads/CCBL_2025_Master_w_RV_Fixed.csv")
+CCBL_3d_spin <- CCBL_Combined_2025 %>% filter(!is.na(SpinAxis3dSeamOrientationBallAngleHorizontalAmb1),
+                                              !is.na(SpinAxis3dSeamOrientationBallAngleVerticalAmb1),
+                                              !is.na(InducedVertBreak), !is.na(HorzBreak)) %>% filter(HomeTeam != "BRE_WHI")
+
+
+
+
+
+###########################################
+# RHP Slider specific model(HorzBreak)
+###########################################
+
+# --- 1. Data Preparation ---
+set.seed(0)
+
+# Split into training and validation sets
+train_size <- 0.5 * nrow(CCBL_3d_spin)
+train_index <- sample(x = 1:nrow(CCBL_3d_spin), size = train_size)
+
+train_set <- CCBL_3d_spin[train_index, ] %>% filter(AutoPitchType == "Slider", PitcherThrows == "Right")
+valid_set <- CCBL_3d_spin[-train_index, ]  %>% filter(AutoPitchType == "Slider", PitcherThrows == "Right")
+
+train_set$SpinAxis3dSeamOrientationRotationX
+# Define features (X) and target (y) for training
+x <- train_set[, c("SpinRate", "SpinAxis", "SpinAxis3dSpinEfficiency",
+                   "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1",
+                   "SpinAxis3dSeamOrientationBallAngleVerticalAmb1",
+                   "SpinAxis3dSeamOrientationBallAngleHorizontalAmb2",
+                   "SpinAxis3dSeamOrientationBallAngleVerticalAmb2")]
+
+y <- train_set$HorzBreak
+
+# Validation features
+x_valid <- valid_set[, c("SpinRate", "SpinAxis", "SpinAxis3dSpinEfficiency",
+                         "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1",
+                         "SpinAxis3dSeamOrientationBallAngleVerticalAmb1",
+                         "SpinAxis3dSeamOrientationBallAngleHorizontalAmb2",
+                         "SpinAxis3dSeamOrientationBallAngleVerticalAmb2")]
+
+
+# --- 2. Model Training ---
+horz_break_model <- xgboost(
+  data        = as.matrix(x),
+  label       = y,
+  max_depth   = 10,
+  nrounds     = 100,
+  alpha       = 0.01,
+  objective   = "reg:squarederror",
+  eval_metric = "rmse",
+  verbose     = 1
+)
+
+
+# --- 3. Model Evaluation ---
+# Feature importance
+var_imp_matrix <- xgb.importance(model = horz_break_model)
+xgb.plot.importance(var_imp_matrix)
+
+# Predictions on validation set
+new_data <- xgb.DMatrix(data = as.matrix(x_valid))
+valid_set$horz_predictions <- predict(horz_break_model, new_data)
+
+# Plot actual vs predicted Horz Break
+valid_set %>% ggplot(aes(HorzBreak, horz_predictions)) + 
+  geom_point(na.rm = TRUE)
+
+
+
+
+
+
+###########################################
+# RHP Slider specific model(InducedVertBreak)
+###########################################
+
+# --- 1. Data Preparation ---
+set.seed(0)
+
+# Split into training and validation sets
+train_size <- 0.5 * nrow(CCBL_3d_spin)
+train_index <- sample(x = 1:nrow(CCBL_3d_spin), size = train_size)
+
+train_set <- CCBL_3d_spin[train_index, ] %>% filter(AutoPitchType == "Slider", PitcherThrows == "Right")
+valid_set <- CCBL_3d_spin[-train_index, ]  %>% filter(AutoPitchType == "Slider", PitcherThrows == "Right")
+
+# Define features (X) and target (y) for training
+x <- train_set[, c("SpinRate", "SpinAxis", "SpinAxis3dSpinEfficiency",
+                   "SpinAxis3dVectorX",
+                   "SpinAxis3dSeamOrientationBallAngleVerticalAmb1")]
+
+y <- train_set$InducedVertBreak
+
+# Validation features
+x_valid <- valid_set[, c("SpinRate", "SpinAxis", "SpinAxis3dSpinEfficiency",
+                         "SpinAxis3dVectorX",
+                         "SpinAxis3dSeamOrientationBallAngleVerticalAmb1")]
+
+
+# --- 2. Model Training ---
+vert_break_model <- xgboost(
+  data        = as.matrix(x),
+  label       = y,
+  max_depth   = 5,
+  nrounds     = 100,
+  alpha       = 0.01,
+  objective   = "reg:squarederror",
+  eval_metric = "rmse",
+  verbose     = 1
+)
+
+
+# --- 3. Model Evaluation ---
+# Feature importance
+var_imp_matrix <- xgb.importance(model = vert_break_model)
+xgb.plot.importance(var_imp_matrix)
+
+# Predictions on validation set
+new_data <- xgb.DMatrix(data = as.matrix(x_valid))
+valid_set$vert_predictions <- predict(vert_break_model, new_data)
+
+# Plot actual vs predicted Horz Break
+valid_set %>% ggplot(aes(InducedVertBreak, vert_predictions)) + 
+  geom_point(na.rm = TRUE)
+
+
+
+
+
+
+
+# ------- Evaluating both models(slider specific)----------
+
+# Root mean squared error
+RMSE(valid_set$HorzBreak, valid_set$horz_predictions)
+RMSE(valid_set$InducedVertBreak, valid_set$vert_predictions)
+
+# mean absolute error
+MAE(valid_set$HorzBreak, valid_set$horz_predictions)
+MAE(valid_set$InducedVertBreak, valid_set$vert_predictions) 
+
+# r squared
+r_squared <- 1 - sum((valid_set$HorzBreak - valid_set$horz_predictions)^2) / sum((valid_set$HorzBreak - mean(valid_set$HorzBreak))^2)
+r_squared <- 1 - sum((valid_set$InducedVertBreak - valid_set$vert_predictions)^2) / sum((valid_set$InducedVertBreak - mean(valid_set$InducedVertBreak))^2)
+
+# correlation
+cor(valid_set$HorzBreak, valid_set$horz_predictions, method = "pearson")
+cor(valid_set$InducedVertBreak, valid_set$vert_predictions, method = "pearson")
+
