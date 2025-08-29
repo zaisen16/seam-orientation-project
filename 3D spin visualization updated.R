@@ -59,7 +59,7 @@ plot_mollweide <- function(name){
   lon_spline <- spline(t, seam_points$lon, xout = t_interp)$y
   lat_spline <- spline(t, seam_points$lat, xout = t_interp)$y
   
-  spline_curve <- data.frame(lon = lon_spline, lat = lat_spline)
+  seam_curve <- data.frame(lon = lon_spline, lat = lat_spline)
   
   
   
@@ -67,7 +67,7 @@ plot_mollweide <- function(name){
   # Plot Mollweide Projection of seam orientation
   ggplot(data, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb1, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb1, color = TaggedPitchType)) +
     scale_color_manual(values = TMcolors) + 
-    geom_path(data = spline_curve, aes(x = lon, y = lat), color = "red", linewidth = 1.5) +
+    geom_path(data = seam_curve, aes(x = lon, y = lat), color = "red", linewidth = 1.5) +
     geom_point(size = 1.5, alpha = 0.75) +
     geom_point(data = data, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb2, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb2, color = TaggedPitchType)) +
     geom_point(data = data, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb3, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb3, color = TaggedPitchType)) +
@@ -86,7 +86,4 @@ plot_mollweide <- function(name){
 }
 
 
-plot_mollweide("Catalano, Michael")
-
-
-# minor tweak Fri Aug 29 17:53:01 CDT 2025
+plot_mollweide("Last Name, First Name")
