@@ -1,4 +1,4 @@
-
+# Load packages
 library(forecast)
 library(caret)
 library(xgboost)
