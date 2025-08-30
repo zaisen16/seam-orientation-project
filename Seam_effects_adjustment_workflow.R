@@ -9,7 +9,6 @@ library(pdp)
 library(patchwork)
 
 # Loading Data
-CCBL_Combined_2025 <- read.csv("~/Downloads/CCBL_2025_Master_w_RV_Fixed.csv")
 CCBL_3d_spin <- CCBL_Combined_2025 %>% filter(!is.na(SpinAxis3dSeamOrientationBallAngleHorizontalAmb1),
                                               !is.na(SpinAxis3dSeamOrientationBallAngleVerticalAmb1),
                                               !is.na(InducedVertBreak), !is.na(HorzBreak)) %>% filter(HomeTeam != "BRE_WHI")
@@ -71,7 +70,6 @@ valid_set %>% ggplot(aes(HorzBreak, horz_predictions)) +
 
 
 # --- 5. Partial Dependence (PDP) on seam-orientation features ---
-
 
 
 # Seam-orientation features
@@ -392,33 +390,41 @@ print(source_df %>%
 
 
 ### Now test a new orientation here(also need trained IVB model)
-test <- CCBL_3d_spin %>% filter(Pitcher == "Marsten, Duncan", TaggedPitchType == "Slider")
+### This section is meant to be sequential
+# Create test df, with pitcher name and pitch type
+test <- CCBL_3d_spin %>% filter(Pitcher == "Last, First", TaggedPitchType == "Slider")
+# Returns avg movement, good to observe prior to test
 c(mean(test$InducedVertBreak), mean(test$HorzBreak))
+# Returns tilt, good to observe prior to test
 test$SpinAxis3dTilt
+# Include only the input parameters for the model
 test <- test[, c("SpinRate", "SpinAxis","SpinAxis3dSpinEfficiency", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1", "SpinAxis3dSeamOrientationBallAngleVerticalAmb1", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb3", "SpinAxis3dSeamOrientationBallAngleVerticalAmb3")]
 
+# df with the rotations & tilt, easier if you want to visualize in Texas Leaguers' spin orientation tool
+# w_rotations <- test[, c("SpinRate", "SpinAxis","SpinAxis3dSpinEfficiency", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1", "SpinAxis3dSeamOrientationBallAngleVerticalAmb1", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb2", "SpinAxis3dSeamOrientationBallAngleVerticalAmb2", "SpinAxis3dSeamOrientationRotationX", "SpinAxis3dSeamOrientationRotationY", "SpinAxis3dSeamOrientationRotationZ", "SpinAxis3dTilt")]
+
+# Returns the coordinate marks of spin axis entry/exit points, good to observe prior to test
+# Using Amb1 & Amb3, which match up as pairs(ambiguous to Amb2 & Amb4, in other words the same)
 mean(test$SpinAxis3dSeamOrientationBallAngleHorizontalAmb1)
 mean(test$SpinAxis3dSeamOrientationBallAngleVerticalAmb1)
 mean(test$SpinAxis3dSeamOrientationBallAngleHorizontalAmb3)
 mean(test$SpinAxis3dSeamOrientationBallAngleVerticalAmb3)
 
-
+# Create data frame of an example pitch
+# Same spin metrics that the pitch already has, manually adjusting for seam orientation
 example_pitch <- data.frame(
   SpinRate = mean(test$SpinRate),
   SpinAxis = mean(test$SpinAxis),
   SpinAxis3dSpinEfficiency = mean(test$SpinAxis3dSpinEfficiency),
   # SpinAxis3dSpinEfficiency = 0.15,       # Select your own spin efficiency option
   SpinAxis3dSeamOrientationBallAngleHorizontalAmb1 = 100,  # These two are referring to points on the mollweide plot
-  SpinAxis3dSeamOrientationBallAngleVerticalAmb1 = -50 ,    # Should be about 45 for LHP, -45 for RHP(For sweeper)
+  SpinAxis3dSeamOrientationBallAngleVerticalAmb1 = -50 ,    # Manually adjust both for desired seam orientation
   SpinAxis3dSeamOrientationBallAngleHorizontalAmb3 = -100,  # These two are referring to points on the mollweide plot
-  SpinAxis3dSeamOrientationBallAngleVerticalAmb3 = 50    # Should be about 45 for LHP, -45 for RHP(For sweeper)
+  SpinAxis3dSeamOrientationBallAngleVerticalAmb3 = 50    # Manually adjust both for desired seam orientation
 )
+# As Matrix in order to run on xgboost model
 example_pitch <- as.matrix(example_pitch)
 
+# Predict Vert & Horz movement, will return the predicted movement to observe difference between original movement
 predict(vert_break_model, example_pitch)
 predict(horz_break_model, example_pitch)
-
-
-w_rotations <- test[, c("SpinRate", "SpinAxis","SpinAxis3dSpinEfficiency", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1", "SpinAxis3dSeamOrientationBallAngleVerticalAmb1", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb2", "SpinAxis3dSeamOrientationBallAngleVerticalAmb2", "SpinAxis3dSeamOrientationRotationX", "SpinAxis3dSeamOrientationRotationY", "SpinAxis3dSeamOrientationRotationZ", "SpinAxis3dTilt")]
-
-
