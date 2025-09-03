@@ -45,7 +45,7 @@ Here is a mollweide plot of all righty sliders(colored to horizontal break, the 
 
 <img width="1062" height="517" alt="Screenshot 2025-08-09 at 21 21 39" src="https://github.com/user-attachments/assets/536e4417-e632-4c13-9f4c-668ddd26464b" />
 
-Clearly there is a certain seam orientation required to throw a sweeper, located at the group the darkest colored dots on this plot, located on the seam at the bottom right and top left. 
+Clearly there is a certain seam orientation required to throw a sweeper, located at the group of darkest colored dots on this plot, located on the seam at the bottom right and top left. 
 To more easily understand this orientation, here is a helpful visual.
 
 ![ScreenRecording2025-07-24at15 05 17-ezgif com-video-to-gif-converter (1)](https://github.com/user-attachments/assets/b60a156a-3be6-400e-b839-b096f589e123)
