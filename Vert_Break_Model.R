@@ -17,8 +17,8 @@ set.seed(0)
 train_size <- 0.8 * nrow(CCBL_3d_spin)
 train_index <- sample(x = 1:nrow(CCBL_3d_spin), size = train_size)
 
-train_set <- CCBL_3d_spin[train_index, ] # %>% filter(AutoPitchType == "Slider", PitcherThrows == "Right")
-valid_set <- CCBL_3d_spin[-train_index, ] #  %>% filter(AutoPitchType == "Slider", PitcherThrows == "Right")
+train_set <- CCBL_3d_spin[train_index, ] %>% filter(AutoPitchType == "Slider", PitcherThrows == "Right")
+valid_set <- CCBL_3d_spin[-train_index, ]  %>% filter(AutoPitchType == "Slider", PitcherThrows == "Right")
 
 
 # Define features (X) and target (y) for training
