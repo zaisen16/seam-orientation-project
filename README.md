@@ -13,8 +13,8 @@ I am using TrackMan data tracked using the 3D Spin camera, which has been attach
 **Initial Research & Visuals**
 
 First, I needed to be able to actually visualize this data, and find out if there is any true relationship of seam orientation to movement. 
-I started with creating function to visualize the location of a pitches' spin axis on the ball, essentially explaining seam orientation. This is done through a mollweide projection style plot(example below).
-What is being plotting is the spin axis: if I were to put a metal rod through the spin axis of a 4-seam fastball to visualize the spin, this is plotting the entry & exit point of that rod. Each dot is a point at which the ball is rotating around, similar to how the Earth rotates around the north & south poles, for example. 
+I started with creating a function to visualize the location of a pitches' spin axis on the ball, essentially explaining seam orientation. This is done through a mollweide projection style plot(example below).
+What is being plotted is the spin axis: if I were to put a metal rod through the spin axis of a 4-seam fastball to visualize the spin, this is plotting the entry & exit point of that rod. Each dot is a point at which the ball is rotating around, similar to how the Earth rotates around the north & south poles, for example. 
 (Please note, that because the ball's orientation is ambiguous, each pitch actually has 4 points associated with it)
 
 
