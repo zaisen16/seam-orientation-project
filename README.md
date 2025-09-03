@@ -64,7 +64,7 @@ You can also see that there is a clear relationship between this spin axis point
 
 <img width="622" height="577" alt="Screenshot 2025-08-09 at 21 50 09" src="https://github.com/user-attachments/assets/7449a324-0526-405f-ab04-f643cd8897de" />
 
-(Horizontal Break vs horizontal point location of the spin axis)
+(Horizontal Break vs vertical point location of the spin axis)
 
 These two plots show that there is an optimal seam orientation for a sweeper. The actual numbers on the Y axis here are not as intuitive right away, but all they do is point to a location on that mollweide style plot. The two plots point out that the optimal sweeper orientation points are at about 110 degrees horizontal & about -45 degrees vertical, which points to that bottom right portion of the seam that tends to pick up lots of sweep, displayed earlier.
 
