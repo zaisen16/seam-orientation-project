@@ -87,7 +87,7 @@ pred_fun_xgb <- function(object, newdata) {
 # HorzMovement based on different seam orientations(sweeping across vert angles)
 # Essentailly means: What is the horz break on a pitch with everything constant, except sweeping through every option for seam orientation
 
-# Create "rolling" plots, how much movement does it add at every possibly "seam angle"
+# Create "sweep" style plots, how much movement does it add at every possibly "seam angle"
 
 # Uses your existing objects: horz_break_model, x, pred_fun_xgb
 make_cice_plot <- function(feature, title_prefix = "Centered ICE + PDP — HorzBreak vs ") {
