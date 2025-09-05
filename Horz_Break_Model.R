@@ -64,3 +64,6 @@ valid_set$horz_predictions <- predict(horz_break_model, new_data)
 valid_set %>% ggplot(aes(HorzBreak, horz_predictions)) + 
   geom_point(na.rm = TRUE)
 
+# R-squared value
+r_squared <- 1 - sum((valid_set$HorzBreak - valid_set$horz_predictions)^2) / sum((valid_set$HorzBreak - mean(valid_set$HorzBreak))^2)
+
