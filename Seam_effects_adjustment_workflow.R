@@ -114,7 +114,7 @@ p_V1_cice <- make_cice_plot(feat_V1)
 # Horizontal (Amb1)
 p_H1_cice <- make_cice_plot(feat_H1)
 
-library(patchwork)  # install.packages("patchwork") if needed
+# Plot side by side
 p_H1_cice | p_V1_cice
 
 
