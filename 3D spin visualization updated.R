@@ -65,18 +65,19 @@ plot_mollweide <- function(name){
   
   
   # Plot Mollweide Projection of seam orientation
-  ggplot(data, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb1, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb1, color = TaggedPitchType)) +
-    scale_color_manual(values = TMcolors) + 
-    geom_path(data = seam_curve, aes(x = lon, y = lat), color = "red", linewidth = 1.5) +
-    geom_point(size = 1.5, alpha = 0.75) +
-    geom_point(data = data, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb2, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb2, color = TaggedPitchType)) +
-    geom_point(data = data, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb3, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb3, color = TaggedPitchType)) +
-    geom_point(data = data, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb4, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb4, color = TaggedPitchType)) +
+  ggplot(data, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb1, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb1)) +
+    geom_path(data = seam_curve, aes(x = lon, y = lat), color = "red", linewidth = 1.5, inheret.aes = FALSE) +
+    geom_point(size = 1.5, aes(fill = TaggedPitchType), color = "black", shape = 21) +
+    geom_point(data = data, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb2, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb2, fill = TaggedPitchType), color = "black", shape = 21, size = 1.5) +
+    geom_point(data = data, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb3, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb3, fill = TaggedPitchType), color = "black", shape = 21, size = 1.5) +
+    geom_point(data = data, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb4, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb4, fill = TaggedPitchType), color = "black", shape = 21, size = 1.5) +
+    scale_fill_manual(values = TMcolors) + 
     coord_map("mollweide") +  # projection type
     scale_x_continuous(limits = c(-180, 180), breaks = seq(-180, 180, 45)) +
     scale_y_continuous(limits = c(-90, 90), breaks = seq(-90, 90, 30)) +
     labs(
       title = paste0("Seam Orientation: ", pitcher_name),
+      # title = paste0("Seam Orientation:  Anonymous Pitcher"),
       subtitle = "Using TrackMan 3D Spin",
       x = "Horizontal Angle (°)",
       y = "Vertical Angle (°)",
