@@ -1,72 +1,40 @@
-***Analyzing Seam Orientation Data***
+# Anayzing Seam Orientation & Optimizing Pitch Movement Using TrackMan 3D Spin Data
 
+_Utilizing TrackMan seam orientation data to optimize & project pitch design_
 
+### Data Being Used
 
-**What is the data?**
+This project was all done using TrackMan data from Cape Cod League games in 2025. TrackMan provided all CCBL TrackMan units with their newer 3D spin camera, which captures the ball's orientation at release, generating useful information like each pitch's spin axis, orientation, spin efficiency, and more. 
 
-I am using TrackMan data tracked using the 3D Spin camera, which has been attached to all Cape Cod League TrackMan units. The data captures periodically, so my dataset is not every pitch thrown in the cape this summer, but still has many.
+## Main Goals
 
+I used this data with the ultimate goal of identifying and projecting pitch design or pitch adjustments by adjusting the pitch's seam orientation. This is meant to be extremely actionable, showing how a pitcher can adjust a pitch's orientation and the effects it will have on pitch movement. Additionally, this simple and actionable result had to rely on several predictive models and conditional expectations(ICE). 
 
+The main way I have visualized seam orientation is through a mollweide projection style plot of a pitcher's arsenal(example below):
 
+<img width="726" height="338" alt="Screenshot 2025-08-11 at 11 22 13" src="https://github.com/user-attachments/assets/08350f8c-efb9-4081-8b6b-523cf0047629" />
 
+This plot is a map of the baseball, with each point describing the location of spin axis.
 
-**Initial Research & Visuals**
+Using several features of a pitch's spin & ball orientation, I used XGBoost to predict the horizontal and induced vertical break. After creating a way to project pitch movement based only on the balls orientation and spin, I began to use this to identify if a pitcher can create a new pitch shape by only adjusting the seam orientation slightly. 
 
-First, I needed to be able to actually visualize this data, and find out if there is any true relationship of seam orientation to movement. 
-I started with creating a function to visualize the location of a pitches' spin axis on the ball, essentially explaining seam orientation. This is done through a mollweide projection style plot(example below).
-What is being plotted is the spin axis: if I were to put a metal rod through the spin axis of a 4-seam fastball to visualize the spin, this is plotting the entry & exit point of that rod. Each dot is a point at which the ball is rotating around, similar to how the Earth rotates around the north & south poles, for example. 
-(Please note, that because the ball's orientation is ambiguous, each pitch actually has 4 points associated with it)
+<img width="656" height="339" alt="Screenshot 2025-09-12 at 15 23 50" src="https://github.com/user-attachments/assets/38824506-b692-48f0-899f-89e24645e651" />
 
+Above is what I have called a "sweep" style plot, about a pitcher's slider. This plot is showing the predicted horizontal break while "sweeping" through every value for the spin axis's horizontal/vertical point on the ball. When you see the "cliffs" shown in the photo above, this indicates that making this slight adjustment in the seam orientation in this pitch will harness the seam effects to create much more movement. In the case above, a pitcher with a tighter slider(averaging ~4" horz break) could change the seam orientation and add lots of horizontal break, bringing him closer to a sweeper shape. Below you can see what this seam orientation/axis change is like, and its potential results as predicted by the models:
 
-<img width="726" height="338" alt="Screenshot 2025-08-11 at 11 22 13" src="https://github.com/user-attachments/assets/b8db4d75-071f-4c2f-8e06-46260457decc" />
+<img width="804" height="305" alt="Screenshot 2025-09-16 at 12 50 30" src="https://github.com/user-attachments/assets/e6476481-6ef1-4285-be83-9210ca635e42" />
 
+## Additional Reading
 
-(This Pitcher's movement plot, for reference):
-<img width="582" height="404" alt="Screenshot 2025-08-11 at 11 23 15" src="https://github.com/user-attachments/assets/1f692e43-b1ac-4793-88ff-44e2c913e5f4" />
+While the above does generally describe the goals and results of my project so far, it only scratches the surface of what is going on within these examples. For a much more in depth explanation of this project, please read the series of articles I have published on Medium:
 
-To explain this pitcher's mollweide style plot:
+[Part 1: Initial Research & Visualizing Seam Orientation](https://medium.com/@zachary.aisen/seam-orientation-analysis-part-1-initial-research-and-visuals-4176115982fb)
 
-He throws a fastball with a very typical 4-seam orientation, getting perfect 4-seam backspin.
+[Part 2: Modeling Pitch Movement with XGBoost](https://medium.com/@zachary.aisen/seam-orientation-analysis-part-2-modeling-pitch-movement-3e0f5173d377)
 
-His cutter is just offset from the 4-seam fastball's orientation(some misstagged pitches included).
+[Part 3: How to Identify & Test New Seam Orientations for Pitch Design](https://medium.com/@zachary.aisen/seam-orientation-analysis-part-3-how-to-identify-test-new-seam-orientations-6899609bdbde)
 
-And his slider follows a very typical sweeper orientation, with the ball rotating around that bottom right/top left part of the seam. Pitchers can also recognize this as having a "red dot" on the ball, from the ball rotating directly around the seam, creating a dot on the ball visually. It can also be referred to as a more "one-seam" look, with one solid line from the seam as it is spinning.
+### Interested in my work?
 
-
-
-
-
-**Can Seam Orientation Relate to Movement?**
-
-
-At this point, I wanted to see if there is any actual evidence of a certain seam orientation causing more movement(ie, detecting seam shifted wake effects).
-The first place to start with this is analyzing sliders(and sweepers). It is well documented that the sweeper is picking up so much horizontal break due to the seam effects of the pitch. 
-Here is a mollweide plot of all righty sliders(colored to horizontal break, the darker points having the most sweep):
-
-<img width="1062" height="517" alt="Screenshot 2025-08-09 at 21 21 39" src="https://github.com/user-attachments/assets/536e4417-e632-4c13-9f4c-668ddd26464b" />
-
-Clearly there is a certain seam orientation required to throw a sweeper, located at the group of darkest colored dots on this plot, located on the seam at the bottom right and top left. 
-To more easily understand this orientation, here is a helpful visual.
-
-![ScreenRecording2025-07-24at15 05 17-ezgif com-video-to-gif-converter (1)](https://github.com/user-attachments/assets/b60a156a-3be6-400e-b839-b096f589e123)
-
-(You can mess around with this tool at https://scout.texasleaguers.com/spin)
-
-This is the proper seam orientation for a sweeper, which aligns with the well documented orientation pitchers actually use for sweepers. 
-Again, this does not point out the spin direction or gyro angle properly. Typically, a right handed sweeper has the spin axis point or "red dot" on the bottom right of the ball(pitcher's perspective).
-
-
-You can also see that there is a clear relationship between this spin axis point and horizontal movement, on sliders specifically:
-
-<img width="659" height="581" alt="Screenshot 2025-08-09 at 21 48 59" src="https://github.com/user-attachments/assets/de1a1405-9d00-4a53-994d-16924715efce" />
-
-(Horizontal Break vs horizontal point location of the spin axis)
-
-<img width="622" height="577" alt="Screenshot 2025-08-09 at 21 50 09" src="https://github.com/user-attachments/assets/7449a324-0526-405f-ab04-f643cd8897de" />
-
-(Horizontal Break vs vertical point location of the spin axis)
-
-These two plots show that there is an optimal seam orientation for a sweeper. The actual numbers on the Y axis here are not as intuitive right away, but all they do is point to a location on that mollweide style plot. The two plots point out that the optimal sweeper orientation points are at about 110 degrees horizontal & about -45 degrees vertical, which points to that bottom right portion of the seam that tends to pick up lots of sweep, displayed earlier.
-
-To avoid any confusion when looking at these plots, I want to point out one more thing. While this does show a clear relationship of seam orientation to movement, I can not call this a linear relationship, despite what the plot may appear as. It really is just about finding the correct seam orientation. There is no "maximizing" any amount of orientation to achieve sweeper movement. It simply points out that there is an optimal seam orientation.
+Please feel free to reach out! My email is zachary.aisen@gmail.com, and you are also free to connect with me through the links to my Twitter or LinkedIn which are linked in my profile. 
 
