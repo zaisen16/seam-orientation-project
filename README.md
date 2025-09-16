@@ -20,7 +20,9 @@ Using several features of a pitch's spin & ball orientation, I used XGBoost to p
 
 <img width="656" height="339" alt="Screenshot 2025-09-12 at 15 23 50" src="https://github.com/user-attachments/assets/38824506-b692-48f0-899f-89e24645e651" />
 
-Above is what I have called a "sweep" style plot, about a pitcher's slider. This plot is showing the predicted horizontal break while "sweeping" through every value for the spin axis's horizontal/vertical point on the ball. When you see the "cliffs" shown in the photo above, this indicates that making this slight adjustment in the seam orientation in this pitch will harness the seam effects to create much more movement. In the case above, a pitcher with a tighter slider(averaging ~4" horz break) could change the seam orientation and add lots of horizontal break, bringing him closer to a sweeper shape. Below you can see what this seam orientation/axis change is like, and its potential results as predicted by the models:
+Above is what I have called a "sweep" style plot, about a pitcher's slider. This plot is showing the predicted horizontal break while "sweeping" through every value for the spin axis's horizontal/vertical point on the ball. When you see the "cliffs" shown in the photo above, this indicates that making this slight adjustment in the seam orientation in this pitch will harness the seam effects to create much more movement.
+
+In the case above, a pitcher with a tighter slider(averaging ~4" horz break) could change the seam orientation and add lots of horizontal break, bringing him closer to a sweeper shape. Below you can see what this seam orientation/axis change is like, and its potential results as predicted by the models:
 
 <img width="804" height="305" alt="Screenshot 2025-09-16 at 12 50 30" src="https://github.com/user-attachments/assets/e6476481-6ef1-4285-be83-9210ca635e42" />
 
