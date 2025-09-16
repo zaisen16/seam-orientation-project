@@ -1,6 +1,6 @@
-# Anayzing Seam Orientation & Optimizing Pitch Movement Using TrackMan 3D Spin Data
+# Anayzing Seam Orientation & Pitch Movement Using TrackMan 3D Spin Data
 
-_Utilizing TrackMan seam orientation data to optimize & project pitch design_
+_Utilizing TrackMan 3D spin data to optimize & project pitch design through adjustments in seam orientation_
 
 ### Data Being Used
 
