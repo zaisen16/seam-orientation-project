@@ -16,7 +16,7 @@ The main way I have visualized seam orientation is through a mollweide projectio
 
 This plot is a map of the baseball, with each point describing the location of spin axis.
 
-Using several features of a pitch's spin & ball orientation, I used XGBoost to predict the horizontal and induced vertical break. After creating a way to project pitch movement based only on the balls orientation and spin, I began to use this to identify if a pitcher can create a new pitch shape by only adjusting the seam orientation slightly. 
+Using several features of a pitch's spin & ball orientation, I used XGBoost to predict horizontal and induced vertical break. After creating a way to project pitch movement based only on the balls orientation and spin, I began to use this to identify if a pitcher can create a new pitch shape by only adjusting the seam orientation slightly. 
 
 <img width="656" height="339" alt="Screenshot 2025-09-12 at 15 23 50" src="https://github.com/user-attachments/assets/38824506-b692-48f0-899f-89e24645e651" />
 
