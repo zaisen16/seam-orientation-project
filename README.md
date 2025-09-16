@@ -8,7 +8,7 @@ This project was all done using TrackMan data from Cape Cod League games in 2025
 
 ## Main Goals
 
-I used this data with the ultimate goal of identifying and projecting pitch design or pitch adjustments by adjusting the pitch's seam orientation. This is meant to be extremely actionable, showing how a pitcher can adjust a pitch's orientation and the effects it will have on pitch movement. Additionally, this simple and actionable result had to rely on several predictive models and conditional expectations(ICE). 
+I used this data with the ultimate goal of identifying and projecting pitch design or pitch adjustments by changing a pitch's seam orientation. This is meant to be extremely actionable, showing how a pitcher can adjust a pitch's orientation and the effects it will have on pitch movement. Additionally, this simple and actionable result had to rely on several predictive models and conditional expectations(ICE). 
 
 The main way I have visualized seam orientation is through a mollweide projection style plot of a pitcher's arsenal(example below):
 
