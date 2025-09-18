@@ -2,13 +2,14 @@
 library(forecast)
 library(caret)
 library(xgboost)
-library(rpart)
 library(dplyr)     
 library(ggplot2)
 library(pdp)
 library(patchwork)
+library(FNN)
 
 # Loading Data
+CCBL_Combined_2025 <- read.csv("~/Downloads/CCBL_2025_Master_w_RV_Fixed.csv")
 CCBL_3d_spin <- CCBL_Combined_2025 %>% filter(!is.na(SpinAxis3dSeamOrientationBallAngleHorizontalAmb1),
                                               !is.na(SpinAxis3dSeamOrientationBallAngleVerticalAmb1),
                                               !is.na(InducedVertBreak), !is.na(HorzBreak)) %>% filter(HomeTeam != "BRE_WHI")
@@ -71,7 +72,6 @@ valid_set %>% ggplot(aes(HorzBreak, horz_predictions)) +
 
 # --- 5. Partial Dependence (PDP) on seam-orientation features ---
 
-
 # Seam-orientation features
 feat_H1 <- "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1"
 feat_V1 <- "SpinAxis3dSeamOrientationBallAngleVerticalAmb1"
@@ -79,7 +79,7 @@ feat_H2 <- "SpinAxis3dSeamOrientationBallAngleHorizontalAmb3"
 feat_V2 <- "SpinAxis3dSeamOrientationBallAngleVerticalAmb3"
 
 
-# 5.1 A predict function that pdp will use (xgboost needs a numeric matrix)
+# 5.1 predict function that pdp will use (xgboost needs a numeric matrix)
 pred_fun_xgb <- function(object, newdata) {
   predict(object, as.matrix(newdata))
 }
@@ -87,10 +87,10 @@ pred_fun_xgb <- function(object, newdata) {
 # HorzMovement based on different seam orientations(sweeping across vert angles)
 # Essentailly means: What is the horz break on a pitch with everything constant, except sweeping through every option for seam orientation
 
-# Create "sweep" style plots, how much movement does it add at every possibly "seam angle"
+# Create "sweep" plots, how much movement does it add at every possibly "seam angle"
 
-# Uses your existing objects: horz_break_model, x, pred_fun_xgb
-make_cice_plot <- function(feature, title_prefix = "Centered ICE + PDP — HorzBreak vs ") {
+# Uses existing objects: horz_break_model, x, pred_fun_xgb
+make_cice_plot <- function(feature, title_prefix = "Sweep Style Plot, Horz Break vs ") {
   pd <- partial(
     object          = horz_break_model,
     pred.var        = feature,
@@ -138,12 +138,6 @@ feat_V1 <- "SpinAxis3dSeamOrientationBallAngleVerticalAmb1"
 
 pred_fun_xgb <- function(object, newdata) predict(object, as.matrix(newdata))
 
-
-library(dplyr)
-library(pdp)
-library(ggplot2)
-library(FNN)
-
 sweep_pitcher_feature <- function(model,
                                   source_df,
                                   pitcher,
@@ -153,7 +147,7 @@ sweep_pitcher_feature <- function(model,
                                   grid.resolution = 60,
                                   range_from = c("subset","train"),     # where the sweep range comes from
                                   train_X_df = NULL,                    # REQUIRED if range_from="train" or support_check=TRUE
-                                  title_prefix = "ICE + PDP — HorzBreak vs ",
+                                  title_prefix = "Sweep Style Plot, Horz Break vs ",
                                   add_avg_vline = TRUE,                 # median line
                                   band = c("none","sd","iqr"),
                                   support_check = TRUE,                 # turn on KNN support gating
@@ -165,13 +159,13 @@ sweep_pitcher_feature <- function(model,
   range_from <- match.arg(range_from)
   band <- match.arg(band)
   
-  # 1) Subset to this pitcher + pitch type
+  # 1) Subset to this pitcher & pitch type
   sub <- source_df %>%
     filter(.data[[id_cols[1]]] == pitcher,
            .data[[id_cols[2]]] == pitch_type) %>%
     select(any_of(c(id_cols, feat_cols, "HorzBreak"))) %>%
     tidyr::drop_na(all_of(feat_cols))
-  if (nrow(sub) < 5) stop("Not enough rows for that pitcher + pitch type.")
+  if (nrow(sub) < 2) stop("Not enough rows for that pitcher + pitch type.")
   
   # 2) Numeric feature frame for ICE
   sub_X <- sub[, feat_cols, drop = FALSE] %>%
@@ -273,6 +267,7 @@ sweep_pitcher_feature <- function(model,
     labs(
       title    = paste0(title_prefix, feature),
       subtitle = paste0(id_cols[1], ": ", pitcher, "   |   ", id_cols[2], ": ", pitch_type),
+      # subtitle = paste0(id_cols[1], ": Anonymous Pitcher", "   |   ", id_cols[2], ": ", pitch_type),
       x = feature,
       y = "Predicted HorzBreak (inches)"
     )
@@ -287,7 +282,7 @@ sweep_pitcher_feature <- function(model,
                       xmin = q[1], xmax = q[2],
                       ymin = -Inf, ymax = Inf, alpha = 0.06)
   }
-  # Median seam marker
+  # Median marker
   if (add_avg_vline && is.finite(p50)) {
     p <- p +
       geom_vline(xintercept = p50, linetype = 2, linewidth = 0.8, color = "steelblue") +
@@ -361,8 +356,7 @@ sweep_pitcher_H1_V1 <- function(model,
 
 ### Example call of wrapper function
 # Use your original subset (IDs intact)
-source_df <- CCBL_3d_spin %>%
-  dplyr::filter(TaggedPitchType == "Slider", PitcherThrows == "Right")
+source_df <- CCBL_3d_spin
 
 # Training features frame (for sweep range + support check)
 train_X_df <- as.data.frame(x)  # x = your training feature matrix (as.data.frame)
@@ -383,50 +377,45 @@ sweep_pitcher_H1_V1(
 )
 
 
-print(source_df %>% 
-        count(Pitcher, sort = TRUE))
-
-
 
 
 ### Now test a new orientation here(also need trained IVB model)
-### This section is meant to be sequential
-# Create test df, with pitcher name and pitch type
-test <- CCBL_3d_spin %>% filter(Pitcher == "Last, First", TaggedPitchType == "Slider")
-# Returns avg movement, good to observe prior to test
+
+test <- CCBL_3d_spin %>% filter(Pitcher == "Marsten, Duncan", TaggedPitchType == "Slider")
+
+# Avg Horz & Vert break of original pitch(sanity check)
 c(mean(test$InducedVertBreak), mean(test$HorzBreak))
-# Returns tilt, good to observe prior to test
+# Tilt of original pitch(sanity check)
 test$SpinAxis3dTilt
-# Include only the input parameters for the model
+# edit test df to have only what is needed for model
 test <- test[, c("SpinRate", "SpinAxis","SpinAxis3dSpinEfficiency", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1", "SpinAxis3dSeamOrientationBallAngleVerticalAmb1", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb3", "SpinAxis3dSeamOrientationBallAngleVerticalAmb3")]
 
-# df with the rotations & tilt, easier if you want to visualize in Texas Leaguers' spin orientation tool
-# w_rotations <- test[, c("SpinRate", "SpinAxis","SpinAxis3dSpinEfficiency", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1", "SpinAxis3dSeamOrientationBallAngleVerticalAmb1", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb2", "SpinAxis3dSeamOrientationBallAngleVerticalAmb2", "SpinAxis3dSeamOrientationRotationX", "SpinAxis3dSeamOrientationRotationY", "SpinAxis3dSeamOrientationRotationZ", "SpinAxis3dTilt")]
-
-# Returns the coordinate marks of spin axis entry/exit points, good to observe prior to test
-# Using Amb1 & Amb3, which match up as pairs(ambiguous to Amb2 & Amb4, in other words the same)
+# More sanity check, Amb1 & Amb3 points, prior to adjusting
 mean(test$SpinAxis3dSeamOrientationBallAngleHorizontalAmb1)
 mean(test$SpinAxis3dSeamOrientationBallAngleVerticalAmb1)
 mean(test$SpinAxis3dSeamOrientationBallAngleHorizontalAmb3)
 mean(test$SpinAxis3dSeamOrientationBallAngleVerticalAmb3)
 
-# Create data frame of an example pitch
-# Same spin metrics that the pitch already has, manually adjusting for seam orientation
+
 example_pitch <- data.frame(
   SpinRate = mean(test$SpinRate),
   SpinAxis = mean(test$SpinAxis),
-  SpinAxis3dSpinEfficiency = mean(test$SpinAxis3dSpinEfficiency),
-  # SpinAxis3dSpinEfficiency = 0.15,       # Select your own spin efficiency option
-  SpinAxis3dSeamOrientationBallAngleHorizontalAmb1 = 100,  # These two are referring to points on the mollweide plot
-  SpinAxis3dSeamOrientationBallAngleVerticalAmb1 = -50 ,    # Manually adjust both for desired seam orientation
-  SpinAxis3dSeamOrientationBallAngleHorizontalAmb3 = -100,  # These two are referring to points on the mollweide plot
-  SpinAxis3dSeamOrientationBallAngleVerticalAmb3 = 50    # Manually adjust both for desired seam orientation
+  SpinAxis3dSpinEfficiency = mean(test$SpinAxis3dSpinEfficiency), # Use mean spin efficiency of original pitch
+  # SpinAxis3dSpinEfficiency = 0.15,       # Select your own spin efficiency (option)
+  SpinAxis3dSeamOrientationBallAngleHorizontalAmb1 = 100,  # Adjustment of seam orientation
+  SpinAxis3dSeamOrientationBallAngleVerticalAmb1 = -50 ,    # These two are referring to points on the mollweide plot
+  SpinAxis3dSeamOrientationBallAngleHorizontalAmb3 = -70,  # Adjustment of seam orientation
+  SpinAxis3dSeamOrientationBallAngleVerticalAmb3 = 50    # These two are referring to points on the mollweide plot
 )
-# As Matrix in order to run on xgboost model
+
+# Create matrix(format needed to put through xgboost model)
 example_pitch <- as.matrix(example_pitch)
 
-# Predict Vert & Horz movement, will return the predicted movement to observe difference between original movement
+# Put new pitch through xgboost model, observe newly predicted Horz & Vert breaks
 predict(vert_break_model, example_pitch)
 predict(horz_break_model, example_pitch)
+
+# Optional: Creates a df that contains the rotations, which can be put into the TexasLeaguers spin visualization tool
+w_rotations <- test[, c("SpinRate", "SpinAxis","SpinAxis3dSpinEfficiency", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1", "SpinAxis3dSeamOrientationBallAngleVerticalAmb1", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb2", "SpinAxis3dSeamOrientationBallAngleVerticalAmb2", "SpinAxis3dSeamOrientationRotationX", "SpinAxis3dSeamOrientationRotationY", "SpinAxis3dSeamOrientationRotationZ", "SpinAxis3dTilt")]
 
 
