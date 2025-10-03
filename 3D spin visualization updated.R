@@ -67,6 +67,10 @@ plot_mollweide <- function(name){
   # Plot Mollweide Projection of seam orientation
   ggplot(data, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb1, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb1)) +
     geom_path(data = seam_curve, aes(x = lon, y = lat), color = "red", linewidth = 1.5, inheret.aes = FALSE) +
+    geom_rect(aes(xmin = -180, xmax = 180, ymin = -90, ymax = 90),
+              fill = NA, color = "black", linewidth = 0.5) + 
+    geom_rect(aes(xmin = -90, xmax = 90, ymin = -90, ymax = 90),
+              fill = NA, color = "darkgrey", linewidth = 0.5) + 
     geom_point(size = 1.5, aes(fill = TaggedPitchType), color = "black", shape = 21) +
     geom_point(data = data, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb2, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb2, fill = TaggedPitchType), color = "black", shape = 21, size = 1.5) +
     geom_point(data = data, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb3, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb3, fill = TaggedPitchType), color = "black", shape = 21, size = 1.5) +
