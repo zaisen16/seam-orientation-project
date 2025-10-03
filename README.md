@@ -24,7 +24,7 @@ Above is what I have called a "sweep" style plot, about a pitcher's slider. This
 
 In the case above, a pitcher with a tighter slider(averaging ~4" horz break) could change the seam orientation and add lots of horizontal break, bringing him closer to a sweeper shape. Below you can see what this seam orientation/axis change is like, and its potential results as predicted by the models:
 
-<img width="804" height="305" alt="Screenshot 2025-09-16 at 12 50 30" src="https://github.com/user-attachments/assets/e6476481-6ef1-4285-be83-9210ca635e42" />
+<img width="754" height="316" alt="Screenshot 2025-10-03 at 13 08 16" src="https://github.com/user-attachments/assets/6312ac56-8365-4b60-ad80-8c5a4f42a1d8" />
 
 ## Additional Reading
 
