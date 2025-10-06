@@ -1,4 +1,7 @@
 library(FNN)
+library(gt)
+library(gtExtras)
+library(scales)
 
 test_pitch_neighbors <- function(pitcher, pitch_type, H1, V1, H3, V3){
 
@@ -6,9 +9,8 @@ pitch_actual <- CCBL_3d_spin %>% filter(Pitcher == pitcher, TaggedPitchType == p
 
 example_pitch <- data.frame(
   SpinRate = mean(pitch_actual$SpinRate),
-  SpinAxis = mean(pitch_actual$SpinAxis),
-  SpinAxis3dSpinEfficiency = mean(pitch_actual$SpinAxis3dSpinEfficiency), # Use mean spin efficiency of original pitch
-  # SpinAxis3dSpinEfficiency = 0.15,       # Select your own spin efficiency (option)
+  SpinAxis3dTransverseAngle = mean(pitch_actual$SpinAxis3dTransverseAngle),
+  SpinAxis3dLongitudinalAngle = mean(pitch_actual$SpinAxis3dLongitudinalAngle), # Use mean spin efficiency of original pitch
   SpinAxis3dSeamOrientationBallAngleHorizontalAmb1 = H1,  # Adjustment of seam orientation
   SpinAxis3dSeamOrientationBallAngleVerticalAmb1 = V1 ,    # These two are referring to points on the mollweide plot
   SpinAxis3dSeamOrientationBallAngleHorizontalAmb3 = H3,  # Adjustment of seam orientation
@@ -16,27 +18,10 @@ example_pitch <- data.frame(
 )
 
 
-
-
-
-test <- CCBL_3d_spin %>% filter(Pitcher == "Marsten, Duncan", TaggedPitchType == "Slider")
-
-example_pitch <- data.frame(
-  SpinRate = mean(test$SpinRate, na.rm = TRUE),
-  SpinAxis = mean(test$SpinAxis, na.rm = TRUE),
-  SpinAxis3dSpinEfficiency = mean(test$SpinAxis3dSpinEfficiency, na.rm = TRUE), # Use mean spin efficiency of original pitch
-  # SpinAxis3dSpinEfficiency = 0.15,       # Select your own spin efficiency (option)
-  SpinAxis3dSeamOrientationBallAngleHorizontalAmb1 = 100,  # Adjustment of seam orientation
-  SpinAxis3dSeamOrientationBallAngleVerticalAmb1 = -50 ,    # These two are referring to points on the mollweide plot
-  SpinAxis3dSeamOrientationBallAngleHorizontalAmb3 = -70,  # Adjustment of seam orientation
-  SpinAxis3dSeamOrientationBallAngleVerticalAmb3 = 50    # These two are referring to points on the mollweide plot
-)
-
-
 feat_cols <- c(
   "SpinRate",
-  "SpinAxis",
-  "SpinAxis3dSpinEfficiency",
+  "SpinAxis3dTransverseAngle",
+  "SpinAxis3dLongitudinalAngle",
   "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1",
   "SpinAxis3dSeamOrientationBallAngleVerticalAmb1",
   "SpinAxis3dSeamOrientationBallAngleHorizontalAmb3",
@@ -46,8 +31,8 @@ feat_cols <- c(
 # Feature weights(care more about finding matching seam orientations than spin rates)
 w <- c(
   SpinRate = 1.0,
-  SpinAxis = 2.0,
-  SpinAxis3dSpinEfficiency = 1.5,
+  SpinAxis3dTransverseAngle = 3,
+  SpinAxis3dLongitudinalAngle = 1,
   SpinAxis3dSeamOrientationBallAngleHorizontalAmb1 = 3.0,
   SpinAxis3dSeamOrientationBallAngleVerticalAmb1   = 3.0,
   SpinAxis3dSeamOrientationBallAngleHorizontalAmb3 = 3.0,
@@ -75,9 +60,24 @@ neighbors <- get.knnx(data = X_w, query = q_w, k = 10)
 # neighbors indecies, to refer to other dataset
 neighbors_idx <- neighbors$nn.index[1,]
 # Create dataset of top 10 neighbors
-out <- cbind(CCBL_3d_spin[neighbors_idx, c("Pitcher", "TaggedPitchType", "InducedVertBreak","HorzBreak")], CCBL_3d_spin[neighbors_idx, feat_cols])
-# Make into gt table 538 theme
-out %>% gt() %>% gt_theme_538(quiet = TRUE)
+out <- cbind(CCBL_3d_spin[neighbors_idx, c("Pitcher", "TaggedPitchType", "InducedVertBreak","HorzBreak", "SpinAxis3dSpinEfficiency", "SpinAxis3dTilt")], CCBL_3d_spin[neighbors_idx, feat_cols])
+
+out %>% summarize(
+  TaggedPitchType = TaggedPitchType,
+  IVB = round(InducedVertBreak, 1),
+  HB = round(HorzBreak, 1),
+  SpinRate = round(SpinRate, 0),
+  SpinDir = SpinAxis3dTilt,
+  SpinEfficiency = percent(round(SpinAxis3dSpinEfficiency, 4)),
+  H1 = round(SpinAxis3dSeamOrientationBallAngleHorizontalAmb1, 0),
+  V1 = round(SpinAxis3dSeamOrientationBallAngleVerticalAmb1, 0),
+  H3 = round(SpinAxis3dSeamOrientationBallAngleHorizontalAmb3, 0),
+  V3 = round(SpinAxis3dSeamOrientationBallAngleVerticalAmb3, 0)
+) %>% gt() %>% tab_spanner(
+  label = "Inputted Spin & Seam Orientation",
+  columns = c(SpinRate, SpinDir, SpinEfficiency, H1, V1, H3, V3)) %>% tab_spanner(
+      label = "Movement",
+      columns = c(IVB, HB)) %>% gt_theme_538(quiet = TRUE)
 
 }
 
