@@ -66,7 +66,23 @@ valid_set$horz_predictions <- predict(horz_break_model, new_data)
 valid_set %>% ggplot(aes(HorzBreak, horz_predictions)) + 
   geom_point(na.rm = TRUE)
 
-
+# Defining pitch type coloring
+TMcolors <- c("4-Seam Fastball" = "#8E8E8E",
+              "Fastball" = "#8E8E8E",
+              "Cutter" = "purple",
+              "Sinker" = "#E50E00",
+              "Slider" = "#4595FF",
+              "Sweeper" = "#6ACDE5",
+              "Slurve" = "#D38B31",
+              "Changeup" = "#009A09",
+              "ChangeUp" = "#009A09",
+              "Split-Finger" = "#11C67B",
+              "Splitter" = "#11C67B",
+              "Curveball" = "orange",
+              "Knuckle Curve" = "orange",
+              "Screwball" = "#ECE400",
+              "Forkball" = "#00F9AC",
+              "Knuckleball" = "aquamarine")
 
 
 
@@ -125,8 +141,8 @@ p_H1_cice | p_V1_cice
 ### Predictor helper
 feat_cols <- c(
   "SpinRate",
-  "SpinAxis",
-  "SpinAxis3dSpinEfficiency",
+  "SpinAxis3dTransverseAngle",
+  "SpinAxis3dLongitudinalAngle",
   "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1",
   "SpinAxis3dSeamOrientationBallAngleVerticalAmb1",
   "SpinAxis3dSeamOrientationBallAngleHorizontalAmb3",
@@ -381,14 +397,14 @@ sweep_pitcher_H1_V1(
 
 ### Now test a new orientation here(also need trained IVB model)
 
-test <- CCBL_3d_spin %>% filter(Pitcher == "Marsten, Duncan", TaggedPitchType == "Slider")
+test <- CCBL_3d_spin %>% filter(Pitcher == "Marsten, Duncan", TaggedPitchType == "Fastball")
 
 # Avg Horz & Vert break of original pitch(sanity check)
-c(mean(test$InducedVertBreak), mean(test$HorzBreak))
+c(mean(test$InducedVertBreak, na.rm = TRUE), mean(test$HorzBreak, na.rm = TRUE))
 # Tilt of original pitch(sanity check)
-test$SpinAxis3dTilt
+test$SpinAxis3dTransverseAngle
 # edit test df to have only what is needed for model
-test <- test[, c("SpinRate", "SpinAxis","SpinAxis3dSpinEfficiency", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1", "SpinAxis3dSeamOrientationBallAngleVerticalAmb1", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb3", "SpinAxis3dSeamOrientationBallAngleVerticalAmb3")]
+# test <- test[, c("SpinRate", "SpinAxis","SpinAxis3dSpinEfficiency", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1", "SpinAxis3dSeamOrientationBallAngleVerticalAmb1", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb3", "SpinAxis3dSeamOrientationBallAngleVerticalAmb3")]
 
 # More sanity check, Amb1 & Amb3 points, prior to adjusting
 mean(test$SpinAxis3dSeamOrientationBallAngleHorizontalAmb1)
@@ -396,12 +412,62 @@ mean(test$SpinAxis3dSeamOrientationBallAngleVerticalAmb1)
 mean(test$SpinAxis3dSeamOrientationBallAngleHorizontalAmb3)
 mean(test$SpinAxis3dSeamOrientationBallAngleVerticalAmb3)
 
+# Create new spin axis points
+new_H1 <- 100
+new_V1 <- -50
+new_H3 <- -70
+new_V3 <- 50
 
+# features
+feat_cols <- c(
+  "SpinRate",
+  "SpinAxis3dTransverseAngle",
+  "SpinAxis3dLongitudinalAngle",
+  "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1",
+  "SpinAxis3dSeamOrientationBallAngleVerticalAmb1",
+  "SpinAxis3dSeamOrientationBallAngleHorizontalAmb3",
+  "SpinAxis3dSeamOrientationBallAngleVerticalAmb3"
+)
+
+# Overwrite seam-orientation data for ALL rows of the original pitches thrown
+X_new <- test %>%
+  select(all_of(feat_cols)) %>%
+  mutate(
+    SpinAxis3dSeamOrientationBallAngleHorizontalAmb1 = new_H1,
+    SpinAxis3dSeamOrientationBallAngleVerticalAmb1   = new_V1,
+    SpinAxis3dSeamOrientationBallAngleHorizontalAmb3 = new_H3,
+    SpinAxis3dSeamOrientationBallAngleVerticalAmb3   = new_V3
+    # ,SpinAxis3dTransverseAngle = SpinAxis3dTransverseAngle-25 # (optional adjustment)
+    # ,SpinAxis3dLongitudinalAngle = SpinAxis3dLongitudinalAngle-10 # (optional adjustment)
+  ) %>%
+  mutate(across(everything(), as.numeric))
+
+# predict movement of the newly adjusted pitches
+X_new_mat <- as.matrix(X_new)
+test$horz_pred_new <- predict(horz_break_model, X_new_mat)
+test$vert_pred_new <- predict(vert_break_model, X_new_mat)
+
+# Now plot results in typical movement plot:
+ggplot(test, aes(horz_pred_new, vert_pred_new)) +
+  geom_segment(x=-30, xend=30, y=0, yend=0, color = "black") +
+  geom_segment(x=0, xend=0, y=-30, yend=30, color = "black") +
+  coord_equal(xlim = c(-25, 25), ylim = c(-25, 25)) +
+  geom_point(aes(fill = TaggedPitchType), shape = 21, color = "black", size = 2.75) +
+  geom_point(aes(HorzBreak, InducedVertBreak, fill = TaggedPitchType), alpha = 0.5, shape = 21, color = "black", size = 2.75) + 
+  labs(x = "Horizontal Movement(in.)", y = "Induced Vertical Movement(in.)") +
+  scale_fill_manual(values = TMcolors) + theme_light()
+
+
+
+# Test one example pitch, from the pitcher's original averages
 example_pitch <- data.frame(
   SpinRate = mean(test$SpinRate),
-  SpinAxis = mean(test$SpinAxis),
-  SpinAxis3dSpinEfficiency = mean(test$SpinAxis3dSpinEfficiency), # Use mean spin efficiency of original pitch
-  # SpinAxis3dSpinEfficiency = 0.15,       # Select your own spin efficiency (option)
+  SpinAxis3dTransverseAngle = mean(test$SpinAxis3dTransverseAngle),
+  # SpinAxis3dTransverseAngle = 80,
+  # SpinAxis3dSpinEfficiency = mean(test$SpinAxis3dSpinEfficiency), # Use mean spin efficiency of original pitch
+  # SpinAxis3dSpinEfficiency = 0.3,       # Select your own spin efficiency (option)
+  SpinAxis3dLongitudinalAngle = mean(test$SpinAxis3dLongitudinalAngle),
+  # SpinAxis3dLongitudinalAngle = 72.5,
   SpinAxis3dSeamOrientationBallAngleHorizontalAmb1 = 100,  # Adjustment of seam orientation
   SpinAxis3dSeamOrientationBallAngleVerticalAmb1 = -50 ,    # These two are referring to points on the mollweide plot
   SpinAxis3dSeamOrientationBallAngleHorizontalAmb3 = -70,  # Adjustment of seam orientation
@@ -414,8 +480,7 @@ example_pitch <- as.matrix(example_pitch)
 # Put new pitch through xgboost model, observe newly predicted Horz & Vert breaks
 predict(vert_break_model, example_pitch)
 predict(horz_break_model, example_pitch)
-
 # Optional: Creates a df that contains the rotations, which can be put into the TexasLeaguers spin visualization tool
-w_rotations <- test[, c("SpinRate", "SpinAxis","SpinAxis3dSpinEfficiency", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1", "SpinAxis3dSeamOrientationBallAngleVerticalAmb1", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb2", "SpinAxis3dSeamOrientationBallAngleVerticalAmb2", "SpinAxis3dSeamOrientationRotationX", "SpinAxis3dSeamOrientationRotationY", "SpinAxis3dSeamOrientationRotationZ", "SpinAxis3dTilt")]
+w_rotations <- test[, c("SpinRate", "SpinAxis3dTilt", "SpinAxis", "SpinAxis3dTransverseAngle","SpinAxis3dLongitudinalAngle","SpinAxis3dSpinEfficiency", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1", "SpinAxis3dSeamOrientationBallAngleVerticalAmb1", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb2", "SpinAxis3dSeamOrientationBallAngleVerticalAmb2", "SpinAxis3dSeamOrientationRotationX", "SpinAxis3dSeamOrientationRotationY", "SpinAxis3dSeamOrientationRotationZ", "SpinAxis3dTilt")]
 
 
