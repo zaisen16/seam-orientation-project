@@ -16,11 +16,11 @@ CCBL_3d_spin <- CCBL_Combined_2025 %>% filter(!is.na(SpinAxis3dSeamOrientationBa
 
 
 
-###################
-# HorzBreak Model #
-###################
+###########################
+# HorzBreak Model Example #
+###########################
 
-# --- 1. Data Preparation ---
+# Data Preparation
 set.seed(0)
 
 # Split into training and validation sets
@@ -39,7 +39,7 @@ HorzBreak <- train_set$HorzBreak
 x_valid <- valid_set[, c("SpinRate", "SpinAxis", "SpinAxis3dSpinEfficiency", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1", "SpinAxis3dSeamOrientationBallAngleVerticalAmb1", "SpinAxis3dSeamOrientationBallAngleHorizontalAmb3", "SpinAxis3dSeamOrientationBallAngleVerticalAmb3")]
 
 
-# --- 2. Model Training ---
+### Model Training Example
 horz_break_model <- xgboost(
   data        = as.matrix(x),
   label       = HorzBreak,
@@ -53,7 +53,7 @@ horz_break_model <- xgboost(
 )
 
 
-# --- 3. Model Evaluation ---
+### Model Evaluation
 # Feature importance
 var_imp_matrix <- xgb.importance(model = horz_break_model)
 xgb.plot.importance(var_imp_matrix)
@@ -86,7 +86,7 @@ TMcolors <- c("4-Seam Fastball" = "#8E8E8E",
 
 
 
-# --- 5. Partial Dependence (PDP) on seam-orientation features ---
+# Partial Dependence (PDP) on seam-orientation features
 
 # Seam-orientation features
 feat_H1 <- "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1"
@@ -95,7 +95,7 @@ feat_H2 <- "SpinAxis3dSeamOrientationBallAngleHorizontalAmb3"
 feat_V2 <- "SpinAxis3dSeamOrientationBallAngleVerticalAmb3"
 
 
-# 5.1 predict function that pdp will use (xgboost needs a numeric matrix)
+# predict function that pdp will use (xgboost needs a numeric matrix)
 pred_fun_xgb <- function(object, newdata) {
   predict(object, as.matrix(newdata))
 }
@@ -138,7 +138,7 @@ p_H1_cice | p_V1_cice
 
 # Function for putting in one pitcher/pitch
 
-### Predictor helper
+# Predictor helper
 feat_cols <- c(
   "SpinRate",
   "SpinAxis3dTransverseAngle",
@@ -380,7 +380,7 @@ train_X_df <- as.data.frame(x)  # x = your training feature matrix (as.data.fram
 sweep_pitcher_H1_V1(
   model        = horz_break_model,
   source_df    = source_df,
-  pitcher      = "Marsten, Duncan",
+  pitcher      = "Last Name, First Name",
   pitch_type   = "Slider",
   grid.resolution = 80,
   range_from   = "train",       # sweep on league range (not just this pitcher)
@@ -397,7 +397,7 @@ sweep_pitcher_H1_V1(
 
 ### Now test a new orientation here(also need trained IVB model)
 
-test <- CCBL_3d_spin %>% filter(Pitcher == "Marsten, Duncan", TaggedPitchType == "Fastball")
+test <- CCBL_3d_spin %>% filter(Pitcher == "Last Name, First Name", TaggedPitchType == "Slider")
 
 # Avg Horz & Vert break of original pitch(sanity check)
 c(mean(test$InducedVertBreak, na.rm = TRUE), mean(test$HorzBreak, na.rm = TRUE))
@@ -429,6 +429,7 @@ feat_cols <- c(
   "SpinAxis3dSeamOrientationBallAngleVerticalAmb3"
 )
 
+# Test all pitches example, overwriting w/ new values
 # Overwrite seam-orientation data for ALL rows of the original pitches thrown
 X_new <- test %>%
   select(all_of(feat_cols)) %>%
