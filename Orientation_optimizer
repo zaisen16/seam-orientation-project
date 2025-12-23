@@ -1,0 +1,280 @@
+
+# Load necessary packages
+library(dplyr)
+library(ggplot2)
+library(xgboost)
+library(tidyr)
+
+# Load in full dataset
+CCBL_Combined_2025 <- read.csv("~/Downloads/CCBL_2025_Master_w_RV_Fixed.csv")
+# filter dataset for 3D spin tracked pitches
+CCBL_3d_spin <- CCBL_Combined_2025 %>% filter(!is.na(SpinAxis3dSeamOrientationBallAngleHorizontalAmb1),
+                                              !is.na(SpinAxis3dSeamOrientationBallAngleVerticalAmb1),
+                                              !is.na(InducedVertBreak), !is.na(HorzBreak)) %>% filter(HomeTeam != "BRE_WHI") %>% 
+  mutate(antipode1_horz = SpinAxis3dSeamOrientationBallAngleHorizontalAmb1-180,
+         antipode1_vert = -SpinAxis3dSeamOrientationBallAngleVerticalAmb1)
+
+
+
+### Train models to predict IVB and HB ###
+
+target_ivb <- "InducedVertBreak"
+target_hb  <- "HorzBreak"
+
+# Select feature columns
+feature_cols <- c(
+  # spin magnitude + axis (use vector components to avoid any angle wrap issues)
+  "SpinRate",
+  "SpinAxis3dTransverseAngle", 
+  "SpinAxis3dLongitudinalAngle",
+  "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1",
+  "SpinAxis3dSeamOrientationBallAngleVerticalAmb1",
+  "antipode1_horz",
+  "antipode1_vert",
+  
+  # velo + flight time proxy
+  "RelSpeed",
+  "Extension"
+)
+
+# Create df w/ only features and target variables, remove NAs
+model_df <- CCBL_3d_spin %>%
+  select(all_of(c(target_ivb, target_hb, feature_cols))) %>%
+  filter(if_all(everything(), ~ !is.na(.)))
+
+
+# Set Seed
+set.seed(0)
+
+# Split & set training/validation data
+train_size  <- 0.8 * nrow(model_df)
+train_index <- sample(seq_len(nrow(model_df)), size = train_size)
+train_set <- model_df[train_index, ]
+valid_set <- model_df[-train_index, ]
+
+# Create matrices for model training
+x_train <- as.matrix(train_set[, feature_cols])
+x_valid <- as.matrix(valid_set[, feature_cols])
+
+dtrain_ivb <- xgb.DMatrix(data = x_train, label = train_set[[target_ivb]])
+dvalid_ivb <- xgb.DMatrix(data = x_valid, label = valid_set[[target_ivb]])
+
+dtrain_hb  <- xgb.DMatrix(data = x_train, label = train_set[[target_hb]])
+dvalid_hb  <- xgb.DMatrix(data = x_valid, label = valid_set[[target_hb]])
+
+
+# Train XGBoost models
+
+# Parameters
+params <- list(
+  objective = "reg:squarederror",
+  eval_metric = "rmse",
+  eta = 0.075,
+  max_depth = 6,
+  subsample = 0.6,
+  min_child_weight = 5,
+  colsample_bytree = 0.9
+)
+
+# nrounds & early stop parameters
+nrounds <- 150
+early_stop <- 30
+
+
+# Induced Vertical Break Model
+ivb_model <- xgb.train(
+  params = params,
+  data   = dtrain_ivb,
+  nrounds = nrounds,
+  watchlist = list(train = dtrain_ivb, valid = dvalid_ivb),
+  early_stopping_rounds = early_stop,
+  verbose = 1
+)
+
+# Horizontal Break Model
+hb_model <- xgb.train(
+  params = params,
+  data   = dtrain_hb,
+  nrounds = nrounds,
+  watchlist = list(train = dtrain_hb, valid = dvalid_hb),
+  early_stopping_rounds = early_stop,
+  verbose = 1
+)
+
+# ivb_model importance plot
+var_imp_matrix <- xgb.importance(model = ivb_model)
+xgb.plot.importance(var_imp_matrix)
+
+# hb_model importance plot
+var_imp_matrix <- xgb.importance(model = hb_model)
+xgb.plot.importance(var_imp_matrix)
+
+# Predict onto validation set
+valid_set$pred_ivb <- predict(ivb_model, x_valid)
+valid_set$pred_hb  <- predict(hb_model,  x_valid)
+
+### Model Evaluation ###
+# Create functions for rmse, mae, R-squared
+rmse <- function(y, yhat) sqrt(mean((yhat - y)^2))
+mae  <- function(y, yhat) mean(abs(yhat - y))
+r2   <- function(y, yhat) 1 - sum((y - yhat)^2) / sum((y - mean(y))^2)
+
+rmse_ivb <- rmse(valid_set[[target_ivb]], valid_set$pred_ivb)
+rmse_hb  <- rmse(valid_set[[target_hb]],  valid_set$pred_hb)
+
+mae_ivb <- mae(valid_set[[target_ivb]], valid_set$pred_ivb)
+mae_hb  <- mae(valid_set[[target_hb]],  valid_set$pred_hb)
+
+r2_ivb <- r2(valid_set[[target_ivb]], valid_set$pred_ivb)
+r2_hb  <- r2(valid_set[[target_hb]],  valid_set$pred_hb)
+
+# Output rmse, mae, R-squared
+rmse_ivb; mae_ivb; r2_ivb
+rmse_hb;  mae_hb;  r2_hb
+
+# IVB Actual vs Predicted
+ggplot(valid_set, aes(x = InducedVertBreak, y = pred_ivb)) +
+  geom_point(alpha = 1) +
+  geom_abline(slope = 1, intercept = 0)
+# HB Actual vs Predicted
+ggplot(valid_set, aes(x = HorzBreak, y = pred_hb)) +
+  geom_point(alpha = 1) +
+  geom_abline(slope = 1, intercept = 0)
+
+
+### Create "blob" of movement possibilities by all seam orientations
+
+# Select a pitch to view/optimize
+pitch_row <- valid_set[1872, ]
+
+# HV FORMAT FOR NOW #
+
+# Build grid of seam orientations
+
+seam_hv_cols <- c(
+  "SpinAxis3dSeamOrientationBallAngleHorizontalAmb1",
+  "SpinAxis3dSeamOrientationBallAngleVerticalAmb1"
+)
+
+make_seam_grid_hv <- function(h_step = 2, v_step = 2) {
+  # Horizontal: 0..358; Vertical: -90..90 (degrees)
+  h <- seq(90, 180, by = h_step)
+  v <- seq(-90, 90, by = v_step)
+  
+  expand.grid(
+    SpinAxis3dSeamOrientationBallAngleHorizontalAmb1 = h,
+    SpinAxis3dSeamOrientationBallAngleVerticalAmb1   = v
+  )
+}
+
+seam_grid <- make_seam_grid_hv(h_step = 2, v_step = 2)
+nrow(seam_grid)
+
+# replicate pitch context
+blob_df <- pitch_row[rep(1, nrow(seam_grid)), feature_cols]
+
+# overwrite ONLY HV seam columns
+blob_df[, seam_hv_cols] <- seam_grid[, seam_hv_cols]
+
+# predict movement based on all orientations
+blob_X <- as.matrix(blob_df)
+seam_grid$pred_ivb <- predict(ivb_model, blob_X)
+seam_grid$pred_hb  <- predict(hb_model,  blob_X)
+
+seam_grid <- seam_grid %>% mutate(antipode1_horz = SpinAxis3dSeamOrientationBallAngleHorizontalAmb1-180,
+                                  antipode1_vert = -SpinAxis3dSeamOrientationBallAngleVerticalAmb1)
+
+# Find optimal orientation based on criteria
+best_idx <- which.max(seam_grid$pred_hb)
+best_sol <- seam_grid[best_idx, ]
+best_sol
+
+# Visualize blob
+ggplot(seam_grid, aes(x = pred_hb, y = pred_ivb)) +
+  # axes lines like your movement plots
+  geom_segment(x = -30, xend = 30, y = 0, yend = 0, color = "black") +
+  geom_segment(x = 0, xend = 0, y = -30, yend = 30, color = "black") +
+  coord_equal(xlim = c(-25, 25), ylim = c(-25, 25)) +
+  # stat_density_2d(
+  #   aes(fill = after_stat(level)),
+  #   geom = "polygon", contour = TRUE, bins = 100, alpha = 0.4
+  # ) +
+  # scale_fill_gradient2(
+  #   high = "blue", low = "blue",
+  # ) +
+  geom_point(shape = 21, fill = "grey", color = "black", size = 2.25, alpha = 0.25) +
+  stat_ellipse(color = "grey", fill = "grey", geom = "polygon", alpha = 0.3, level = 0.95, type = "t",
+              linetype = "dashed", show.legend = FALSE) +
+  geom_point(data = pitch_row, aes(y = InducedVertBreak, x = HorzBreak),shape = 21, fill = "blue", color = "black", size = 5, alpha = 80) +
+  geom_point(data = best_sol, aes(y = pred_ivb, x = pred_hb),shape = 21, fill = "red", color = "black", size = 5, alpha = 80) +
+  labs(
+    title = "Expected Pitch Movement",
+    subtitle = "Blue - Original Orientation
+Red - Optimized Orientation
+Grey - Predicted Possibilities",
+    x = "Horizontal Movement(in.)",
+    y = "Induced Vertical Movement(in.)"
+  ) +
+  theme_light()
+
+
+
+
+# Visualization of the seam orientation adjustment, from observed orientation to optimal
+ggplot(pitch_row, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb1, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb1)) +
+  geom_rect(aes(xmin = -180, xmax = 180, ymin = -90, ymax = 90),
+            fill = NA, color = "black", linewidth = 0.5) + 
+  geom_rect(aes(xmin = -90, xmax = 90, ymin = -90, ymax = 90),
+            fill = NA, color = "darkgrey", linewidth = 0.5) +
+  geom_path(data = seam_curve, aes(x = lon, y = lat), color = "red", linewidth = 1.5, inheret.aes = FALSE) +
+  geom_point(size = 5, fill = "blue", color = "black", shape = 21) +
+  geom_point(aes(x = antipode1_horz, y = antipode1_vert), size = 5, fill = "blue", color = "black", shape = 21) +
+  geom_point(data = best_sol, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb1, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb1), 
+             size = 5, fill = "red", color = "black", shape = 21) +
+  geom_point(data = best_sol, aes(x = antipode1_horz, y = antipode1_vert), 
+             size = 5, fill = "red", color = "black", shape = 21) +
+  # geom_point(data = data, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb2, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb2, fill = TaggedPitchType), color = "black", shape = 21, size = 1.5) +
+  # geom_point(data = data, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb3, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb3, fill = TaggedPitchType), color = "black", shape = 21, size = 1.5) +
+  # geom_point(data = data, aes(x = SpinAxis3dSeamOrientationBallAngleHorizontalAmb4, y = SpinAxis3dSeamOrientationBallAngleVerticalAmb4, fill = TaggedPitchType), color = "black", shape = 21, size = 1.5) +
+  scale_fill_manual(values = TMcolors) + 
+  coord_map("mollweide") +  # projection type
+  scale_x_continuous(limits = c(-180, 180), breaks = seq(-180, 180, 45)) +
+  scale_y_continuous(limits = c(-90, 90), breaks = seq(-90, 90, 30)) +
+  labs(
+    title = "Seam Orientation",
+    subtitle = "Blue - Original Orientation
+Red - Optimized Orientation",
+    x = "Horizontal Angle (°)",
+    y = "Vertical Angle (°)",
+    color = "Pitch Type"
+  ) +
+  theme_minimal()
+
+
+
+# Define the seam effects(observed pitch vs mean vs best)
+results <- function(){
+obs_X <- as.matrix(pitch_row[, feature_cols])
+pred_ivb_obs  <- predict(ivb_model, obs_X)
+pred_hb_obs   <- predict(hb_model,  obs_X)
+
+pred_ivb_mean <- mean(seam_grid$pred_ivb)
+pred_hb_mean  <- mean(seam_grid$pred_hb)
+
+pred_ivb_best <- best_sol$pred_ivb
+pred_hb_best  <- best_sol$pred_hb
+
+data.frame(
+  pred_ivb_obs  = pred_ivb_obs,
+  pred_ivb_mean = pred_ivb_mean,
+  pred_ivb_best = pred_ivb_best,
+  ivb_gain_vs_mean  = pred_ivb_best - pred_ivb_mean,
+  ivb_gain_vs_obs   = pred_ivb_best - pred_ivb_obs,
+  pred_hb_obs   = pred_hb_obs,
+  pred_hb_mean  = pred_hb_mean,
+  pred_hb_best  = pred_hb_best,
+  hb_gain_vs_mean  = pred_hb_best - pred_hb_mean,
+  hb_gain_vs_obs   = pred_hb_best - pred_hb_obs
+)
+}
+results()
