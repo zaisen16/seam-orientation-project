@@ -1,0 +1,65 @@
+library(dplyr)
+library(ggplot2)
+library(scales)
+
+
+tilt_efficiency_plot <- function(name){
+TMcolors <- c("4-Seam Fastball" = "#8E8E8E",
+              "Fastball" = "#8E8E8E",
+              "Four-Seam" = "#8E8E8E",
+              "Cutter" = "purple",
+              "Sinker" = "#E50E00",
+              "Slider" = "#4595FF",
+              "Sweeper" = "#6ACDE5",
+              "Slurve" = "#D38B31",
+              "Changeup" = "#009A09",
+              "ChangeUp" = "#009A09",
+              "Split-Finger" = "#11C67B",
+              "Splitter" = "#11C67B",
+              "Curveball" = "orange",
+              "Knuckle Curve" = "orange",
+              "Screwball" = "#ECE400",
+              "Forkball" = "#00F9AC",
+              "Knuckleball" = "aquamarine",
+              "Other" = "grey")
+
+CCBL_3d_spin %>% mutate(
+  SpinAxis3dTransverseAngle = (-SpinAxis3dTransverseAngle + 90) %% 360  # ensure 0–360
+) %>%
+  filter(Pitcher == name) %>%
+  ggplot(aes(
+    x = SpinAxis3dTransverseAngle,   # raw angle in degrees
+    y = SpinAxis3dSpinEfficiency     # 0–1 radius
+  )) +
+  geom_point(size = 2.5, aes(fill = TaggedPitchType), color = "black", shape = 21, na.rm = TRUE) +
+  scale_fill_manual(values = TMcolors) + 
+  coord_polar(theta = "x", start = pi/2, direction = -1, clip = "off") +
+  scale_x_continuous(
+    limits = c(0, 360),
+    breaks = seq(0, 330, by = 30),
+    labels = function(d) {
+      clock_num <- ((270 - d) / 30) %% 12
+      clock_num[clock_num == 0] <- 12
+      as.character(clock_num)
+    }
+  ) +
+  scale_y_continuous(
+    limits = c(0, 1),
+    breaks = seq(0, 1, by = 0.25),
+    labels = percent
+  ) +
+  labs(
+    x = "Spin Direction",
+    y = "Spin Efficiency",
+    color = "Pitch Type",
+    title = "Spin Clock: Direction & Spin Efficiency"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_line(size = 0.3),
+    panel.grid.major.y = element_line(size = 0.3)
+  )
+}
+
+tilt_efficiency_plot("Last Name, First Name")
